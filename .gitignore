@@ -1,0 +1,24 @@
+data/
+node_modules/
+*.log
+*.sqlite*
+.env
+.env.*
+!.env.example
+secrets/
+backups/
+data-*/
+*.pem
+*.key
+*.p12
+*.zip
+__pycache__/
+# Generated QA screenshots; product images remain in assets/.
+/*.png
+/*.jpg
+/*.jpeg
+/demo-contract-upload.pdf
+/server/ui-fixture.cjs
+
+# Local publication helpers are not part of the open-source application.
+.release/

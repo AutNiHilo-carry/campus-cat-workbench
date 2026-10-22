@@ -1,0 +1,16 @@
+.git
+.github
+.env*
+!.env.example
+data
+data-*
+secrets
+backups
+node_modules
+*.zip
+*.log
+*.sqlite*
+/*.png
+!assets/*.png
+server/*.test.cjs
+server/ui-fixture.cjs

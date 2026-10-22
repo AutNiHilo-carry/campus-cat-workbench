@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#244e45"><title>大学猫协一站通 · 高校猫协协作工作台</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="management.css">
+<link rel="stylesheet" href="workbench.css">
+<link rel="stylesheet" href="stories.css">
+<link rel="stylesheet" href="mobile.css">
+</head>
+<body>
+<aside class="sidebar">
+ <a class="brand" href="#overview"><img class="brand-logo" src="assets/aihe-logo.png" alt="复旦大学爱和猫协标识"><span>大学猫协一站通<small>爱和工作台</small></span></a>
+
+ <div class="nav-label">工作空间</div><nav id="nav"></nav>
+ <div class="side-bottom"><button class="profile" id="profile"><span class="avatar">测</span><span>共用测试账号<small>管理与数据</small></span><span>⌄</span></button></div>
+</aside>
+<div class="shell">
+ <header><div class="breadcrumb"><b id="crumb">首页</b></div><div class="header-right"><span class="demo-pill"><i></i> 共用测试账号</span><button class="button secondary" id="help" aria-label="管理与数据">管理 ▾</button></div></header>
+ <main id="main"></main>
+</div>
+<dialog id="dialog"><form id="form"><div class="modal-head"><div><span class="eyebrow">一起照顾好每一只猫咪</span><h2 id="modal-title"></h2></div><button type="button" class="icon-button" id="close" aria-label="关闭">×</button></div><div id="fields"></div><div class="modal-actions"><button type="button" class="button secondary" id="cancel">取消</button><button class="button primary" type="submit">保存记录</button></div></form></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="shared-domain.js"></script>
+<script src="seed.js"></script>
+<script src="management-data.js"></script>
+<script src="vendor/pinyin-pro-3.29.5.js"></script>
+<script src="workbench-model.js"></script>
+<script src="workbench-ui.js"></script>
+<script src="stories.js"></script>
+<script src="workspace.js"></script>
+</body></html>

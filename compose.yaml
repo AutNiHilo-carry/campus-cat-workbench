@@ -1,0 +1,45 @@
+services:
+  app:
+    build: .
+    image: danmiao:${DANMIAO_RELEASE:-local}
+    init: true
+    restart: unless-stopped
+    environment:
+      DANMIAO_PUBLIC_ORIGIN: https://${DANMIAO_DOMAIN:?请在.env填写站点域名}
+      DANMIAO_SETUP_TOKEN_FILE: /run/secrets/setup_token
+      DANMIAO_TRUST_PROXY: "1"
+      DANMIAO_BACKUP_DIR: /backups
+      DANMIAO_BACKUP_INTERVAL_HOURS: "24"
+    secrets:
+      - setup_token
+    volumes:
+      - app_data:/data
+      - app_backups:/backups
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    mem_limit: 1g
+    pids_limit: 100
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DANMIAO_DOMAIN: ${DANMIAO_DOMAIN:?请填写站点域名}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+secrets:
+  setup_token:
+    file: ./secrets/setup-token.txt
+volumes:
+  app_data:
+  app_backups:
+  caddy_data:
+  caddy_config:

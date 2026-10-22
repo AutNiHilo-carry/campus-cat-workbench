@@ -1,0 +1,19 @@
+{
+  "name": "campus-cat-workbench",
+  "version": "0.2.0",
+  "description": "大学猫协一站通：面向高校猫协的开源协作工作台",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "start": "node server/index.cjs",
+    "test": "node workflow-check.cjs && node --test server/*.test.cjs"
+  },
+  "author": "复旦大学爱和猫协",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AutNiHilo-carry/campus-cat-workbench.git"
+  },
+  "private": true
+}

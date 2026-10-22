@@ -1,0 +1,596 @@
+{
+  "cats": [
+    {
+      "id": "CAT-001",
+      "name": "橘子",
+      "color": "#d8a36a",
+      "sex": "公",
+      "age": "约 1 岁",
+      "place": "图书馆东侧",
+      "health": "后腿受伤，正在就医",
+      "owner": "林同学",
+      "photos": []
+    },
+    {
+      "id": "CAT-002",
+      "name": "小芝麻",
+      "color": "#686e67",
+      "sex": "母",
+      "age": "约 8 个月",
+      "place": "学生公寓",
+      "health": "健康，已驱虫",
+      "owner": "陈同学",
+      "photos": []
+    },
+    {
+      "id": "CAT-003",
+      "name": "奶盖",
+      "color": "#ddd5c3",
+      "sex": "母",
+      "age": "约 2 岁",
+      "place": "校外寄养点",
+      "health": "健康，等待绝育",
+      "owner": "周同学",
+      "photos": []
+    },
+    {
+      "id": "CAT-004",
+      "name": "三花",
+      "color": "#bf987c",
+      "sex": "母",
+      "age": "约 1 岁半",
+      "place": "食堂后门",
+      "health": "绝育后恢复良好",
+      "owner": "王同学",
+      "photos": []
+    },
+    {
+      "id": "CAT-005",
+      "name": "煤球",
+      "color": "#474e49",
+      "sex": "公",
+      "age": "约 6 个月",
+      "place": "校外寄养点",
+      "health": "健康，已接种疫苗",
+      "owner": "许同学",
+      "photos": []
+    },
+    {
+      "id": "CAT-006",
+      "name": "小麦",
+      "color": "#c3ac80",
+      "sex": "公",
+      "age": "约 1 岁",
+      "place": "教学楼北侧",
+      "health": "健康，待体检",
+      "owner": "李同学",
+      "photos": []
+    }
+  ],
+  "rescue": [
+    {
+      "id": "R001",
+      "cat": "橘子",
+      "place": "图书馆东侧",
+      "issue": "后腿受伤，需送医检查",
+      "owner": "林同学",
+      "status": "就医中",
+      "date": "2026-10-21",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-001",
+      "medicalDate": "2026-10-21"
+    },
+    {
+      "id": "R002",
+      "cat": "小芝麻",
+      "place": "学生公寓",
+      "issue": "幼猫安置，联系临时寄养",
+      "owner": "陈同学",
+      "status": "已结束",
+      "date": "2026-10-20",
+      "completedDate": "2026-10-20",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-002"
+    },
+    {
+      "id": "R003",
+      "cat": "小麦",
+      "place": "教学楼北侧",
+      "issue": "发现流浪猫，待现场评估",
+      "owner": "李同学",
+      "status": "待救助",
+      "date": "2026-10-21",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-006"
+    }
+  ],
+  "adoption": [
+    {
+      "id": "A001",
+      "cat": "煤球",
+      "applicant": "申请人 A（示例）",
+      "owner": "许同学",
+      "date": "2026-10-20",
+      "status": "有意向领养人",
+      "note": "周末回访，确认适应情况",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-005",
+      "postStatus": "未上领养贴",
+      "agreements": [],
+      "earlyInterval": 7,
+      "regularInterval": 30,
+      "adoptDate": "",
+      "lastFollowup": "",
+      "followups": []
+    },
+    {
+      "id": "A002",
+      "cat": "小芝麻",
+      "applicant": "申请人 B（示例）",
+      "owner": "陈同学",
+      "date": "2026-10-21",
+      "status": "无领养人",
+      "note": "等待完成领养问卷",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-002",
+      "postStatus": "未上领养贴",
+      "agreements": [],
+      "earlyInterval": 7,
+      "regularInterval": 30,
+      "adoptDate": "",
+      "lastFollowup": "",
+      "followups": []
+    }
+  ],
+  "sterilization": [
+    {
+      "id": "S001",
+      "cat": "奶盖",
+      "hospital": "安心动物医院（示例）",
+      "date": "2026-10-23",
+      "owner": "周同学",
+      "status": "待绝育",
+      "cost": 260,
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-003",
+      "surgeryDate": "",
+      "capturer": "周同学",
+      "releaseDate": "",
+      "releasePlace": ""
+    },
+    {
+      "id": "S002",
+      "cat": "三花",
+      "hospital": "安心动物医院（示例）",
+      "date": "2026-10-19",
+      "owner": "王同学",
+      "status": "住院中",
+      "cost": 260,
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-004",
+      "surgeryDate": "2026-10-19",
+      "capturer": "王同学",
+      "releaseDate": "",
+      "releasePlace": ""
+    },
+    {
+      "id": "S003",
+      "cat": "小麦",
+      "hospital": "待确定",
+      "date": "2026-10-25",
+      "owner": "李同学",
+      "status": "待绝育",
+      "cost": 0,
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-006",
+      "surgeryDate": "",
+      "capturer": "李同学",
+      "releaseDate": "",
+      "releasePlace": ""
+    }
+  ],
+  "inventory": [
+    {
+      "id": "I001",
+      "name": "成猫粮",
+      "category": "食品",
+      "qty": 3,
+      "unit": "袋",
+      "place": "活动室 A 柜",
+      "group": "日常",
+      "reserved": 0,
+      "sold": 0,
+      "variant": "",
+      "unitPriceCents": 0,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "I002",
+      "name": "一次性医用手套",
+      "category": "医疗",
+      "qty": 2,
+      "unit": "盒",
+      "place": "活动室 B 柜",
+      "group": "日常",
+      "reserved": 0,
+      "sold": 0,
+      "variant": "",
+      "unitPriceCents": 0,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "I003",
+      "name": "猫砂",
+      "category": "日用",
+      "qty": 8,
+      "unit": "袋",
+      "place": "活动室 A 柜",
+      "group": "日常",
+      "reserved": 0,
+      "sold": 0,
+      "variant": "",
+      "unitPriceCents": 0,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "I004",
+      "name": "航空箱",
+      "category": "器材",
+      "qty": 4,
+      "unit": "个",
+      "place": "活动室门后",
+      "group": "日常",
+      "reserved": 0,
+      "sold": 0,
+      "variant": "",
+      "unitPriceCents": 0,
+      "kind": "可借用器材",
+      "photos": []
+    },
+    {
+      "id": "I005",
+      "name": "碘伏",
+      "category": "医疗",
+      "qty": 6,
+      "unit": "瓶",
+      "place": "活动室 B 柜",
+      "group": "日常",
+      "reserved": 0,
+      "sold": 0,
+      "variant": "",
+      "unitPriceCents": 0,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "C001",
+      "name": "校园猫咪贴纸",
+      "group": "文创",
+      "category": "贴纸",
+      "variant": "六猫组合款",
+      "qty": 70,
+      "reserved": 10,
+      "sold": 10,
+      "unit": "张",
+      "place": "活动室文创柜",
+      "unitPriceCents": 600,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "C002",
+      "name": "喵邻帆布袋",
+      "group": "文创",
+      "category": "帆布袋",
+      "variant": "原色 / 橘猫款",
+      "qty": 18,
+      "reserved": 5,
+      "sold": 0,
+      "unit": "个",
+      "place": "活动室文创柜",
+      "unitPriceCents": 2500,
+      "kind": "消耗品",
+      "photos": []
+    },
+    {
+      "id": "C003",
+      "name": "猫咪徽章",
+      "group": "文创",
+      "category": "徽章",
+      "variant": "小芝麻款",
+      "qty": 6,
+      "reserved": 0,
+      "sold": 0,
+      "unit": "枚",
+      "place": "活动室文创柜",
+      "unitPriceCents": 800,
+      "kind": "消耗品",
+      "photos": []
+    }
+  ],
+  "activities": [
+    {
+      "name": "林同学",
+      "text": "更新了橘子的救助进度：就医中",
+      "time": "今天 10:32"
+    },
+    {
+      "name": "许同学",
+      "text": "记录了煤球的试养回访安排",
+      "time": "今天 09:45"
+    },
+    {
+      "name": "周同学",
+      "text": "预约了奶盖的绝育手术",
+      "time": "昨天 18:20"
+    },
+    {
+      "name": "王同学",
+      "text": "完成了活动室的物资盘点",
+      "time": "昨天 16:08"
+    }
+  ],
+  "foster": [
+    {
+      "id": "F001",
+      "cat": "小芝麻",
+      "place": "校外寄养点 A（示例）",
+      "caregiver": "陈同学",
+      "date": "2026-10-20",
+      "endDate": "2026-11-03",
+      "owner": "陈同学",
+      "status": "寄养中",
+      "note": "每日观察食欲；领养审核由领养组跟进。",
+      "sourceRescueId": "R002",
+      "checklist": {
+        "health": false,
+        "medicine": false,
+        "food": false,
+        "supplies": false,
+        "contact": false
+      },
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-002",
+      "segments": [
+        {
+          "id": "SEG-mvj4309r-w5thrq",
+          "place": "校外寄养点 A（示例）",
+          "caregiver": "陈同学",
+          "startDate": "2026-10-20",
+          "endDate": "",
+          "note": "每日观察食欲；领养审核由领养组跟进。"
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "id": "F002",
+      "cat": "奶盖",
+      "place": "周同学家（示例）",
+      "caregiver": "周同学",
+      "date": "2026-10-21",
+      "endDate": "2026-11-05",
+      "owner": "林同学",
+      "status": "待安置",
+      "note": "准备航空箱，入住时交接猫粮和健康记录。",
+      "checklist": {
+        "health": false,
+        "medicine": false,
+        "food": false,
+        "supplies": false,
+        "contact": false
+      },
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-003",
+      "segments": [
+        {
+          "id": "SEG-mvj4309r-ex7dvf",
+          "place": "周同学家（示例）",
+          "caregiver": "周同学",
+          "startDate": "2026-10-21",
+          "endDate": "2026-10-22",
+          "note": "准备航空箱，入住时交接猫粮和健康记录。"
+        }
+      ],
+      "outcome": ""
+    },
+    {
+      "id": "F003",
+      "cat": "煤球",
+      "place": "校外寄养点 B（示例）",
+      "caregiver": "许同学",
+      "date": "2026-10-10",
+      "endDate": "2026-10-20",
+      "owner": "许同学",
+      "status": "已结束",
+      "note": "已交接至试养家庭，后续在领养模块回访。",
+      "checklist": {
+        "health": true,
+        "medicine": true,
+        "food": true,
+        "supplies": true,
+        "contact": true
+      },
+      "completedDate": "2026-10-10",
+      "nextStep": "",
+      "photos": [],
+      "catId": "CAT-005",
+      "segments": [
+        {
+          "id": "SEG-mvj4309r-ifdzpd",
+          "place": "校外寄养点 B（示例）",
+          "caregiver": "许同学",
+          "startDate": "2026-10-10",
+          "endDate": "2026-10-10",
+          "note": "已交接至试养家庭，后续在领养模块回访。"
+        }
+      ],
+      "outcome": ""
+    }
+  ],
+  "monthly": [
+    {
+      "id": "W001",
+      "title": "小芝麻 · 救助结束",
+      "category": "救助管理",
+      "cat": "小芝麻",
+      "owner": "陈同学",
+      "date": "2026-10-20",
+      "result": "完成现场接送及安置交接，寄养后续独立跟进。",
+      "sourceType": "rescue",
+      "sourceId": "R002",
+      "auto": true,
+      "manualResult": "完成现场接送及安置交接，寄养后续独立跟进。"
+    },
+    {
+      "id": "W002",
+      "title": "煤球 · 寄养结束",
+      "category": "寄养管理",
+      "cat": "煤球",
+      "owner": "许同学",
+      "date": "2026-10-10",
+      "result": "已向试养家庭交接健康记录和用品，领养组继续回访。",
+      "sourceType": "foster",
+      "sourceId": "F003",
+      "auto": true,
+      "manualResult": "已向试养家庭交接健康记录和用品，领养组继续回访。"
+    },
+    {
+      "sourceType": "rescue",
+      "sourceId": "R001",
+      "title": "橘子 · 救助就医",
+      "category": "救助管理",
+      "cat": "橘子",
+      "owner": "林同学",
+      "date": "2026-10-21",
+      "result": "后腿受伤，需送医检查",
+      "auto": true,
+      "id": "W-mvj4309r-0xo57d"
+    },
+    {
+      "sourceType": "sterilization",
+      "sourceId": "S002",
+      "title": "三花 · 绝育手术",
+      "category": "绝育管理",
+      "cat": "三花",
+      "owner": "王同学",
+      "date": "2026-10-19",
+      "result": "安心动物医院（示例）",
+      "auto": true,
+      "id": "W-mvj4309r-u2f3v6"
+    }
+  ],
+  "finance": [
+    {
+      "id": "B001",
+      "title": "协会活动筹款（示例）",
+      "flow": "收入",
+      "amountCents": 180000,
+      "owner": "林同学",
+      "date": "2026-10-05",
+      "status": "已入账",
+      "paidDate": "2026-10-05",
+      "linkType": "",
+      "linkId": "",
+      "receipt": "筹款登记表（示例）",
+      "note": "示例期初为零，记录本月筹款。",
+      "refundReview": false
+    },
+    {
+      "id": "B002",
+      "title": "橘子门诊检查（示例）",
+      "flow": "协会支出",
+      "amountCents": 38000,
+      "owner": "林同学",
+      "date": "2026-10-21",
+      "status": "已入账",
+      "paidDate": "2026-10-21",
+      "linkType": "rescue",
+      "linkId": "R001",
+      "receipt": "门诊票据 001（示例）",
+      "note": "检查及治疗费用。",
+      "refundReview": false
+    },
+    {
+      "id": "B003",
+      "title": "三花绝育垫付（示例）",
+      "flow": "个人垫付",
+      "amountCents": 26000,
+      "owner": "王同学",
+      "date": "2026-10-19",
+      "status": "待审核",
+      "paidDate": "",
+      "linkType": "sterilization",
+      "linkId": "S002",
+      "receipt": "绝育票据 002（示例）",
+      "note": "费用已发生，协会尚未向成员报销。",
+      "refundReview": false
+    },
+    {
+      "id": "B004",
+      "title": "日常猫粮采购（示例）",
+      "flow": "协会支出",
+      "amountCents": 32000,
+      "owner": "王同学",
+      "date": "2026-10-18",
+      "status": "已入账",
+      "paidDate": "2026-10-18",
+      "linkType": "inventory",
+      "linkId": "I001",
+      "receipt": "采购票据 003（示例）",
+      "note": "一笔采购记账；物资数量在物资模块登记。",
+      "refundReview": false
+    },
+    {
+      "id": "B005",
+      "title": "校园猫咪贴纸销售（示例）",
+      "flow": "收入",
+      "amountCents": 6000,
+      "owner": "陈同学",
+      "date": "2026-10-20",
+      "status": "已入账",
+      "paidDate": "2026-10-20",
+      "linkType": "inventory",
+      "linkId": "C001",
+      "receipt": "义卖登记表（示例）",
+      "note": "10 张 × 6 元。",
+      "movementId": "M-SEED",
+      "refundReview": false
+    }
+  ],
+  "movements": [
+    {
+      "id": "M-SEED",
+      "itemId": "C001",
+      "itemName": "校园猫咪贴纸",
+      "type": "售出",
+      "quantity": 10,
+      "date": "2026-10-20",
+      "owner": "陈同学",
+      "destination": "校园义卖",
+      "cat": "公共事项",
+      "amountCents": 6000,
+      "financeId": "B005",
+      "note": "示例销售收入已关联财务。"
+    }
+  ],
+  "loans": [],
+  "audit": [],
+  "schemaVersion": 4,
+  "sales": [],
+  "dismissed": [],
+  "stories": []
+}

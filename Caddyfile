@@ -1,0 +1,6 @@
+{$DANMIAO_DOMAIN} {
+  request_body {
+    max_size 150MB
+  }
+  reverse_proxy app:8787
+}
