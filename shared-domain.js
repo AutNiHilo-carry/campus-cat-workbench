@@ -41,7 +41,8 @@ const wbActive=(store,type)=>(store[type]||[]).filter(r=>!r.deletedAt);
 const wbValidDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
 function wbAddDays(day,n){return new Date(Date.parse(day+'T00:00:00Z')+n*86400000).toISOString().slice(0,10)}
 function wbAddMonth(day){const d=new Date(day+'T00:00:00Z'),date=d.getUTCDate();d.setUTCDate(1);d.setUTCMonth(d.getUTCMonth()+1);const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();d.setUTCDate(Math.min(date,last));return d.toISOString().slice(0,10)}
-function wbFollowup(row,asOf=day()){
+function wbFollowup(row,asOf=day(),store){
+ if(store){const cat=wbActive(store,'cats').find(c=>row.catId?c.id===row.catId:c.name===row.cat);if(cat&&catCategory(store,cat)==='已去喵星')return {due:false,next:'',label:'已归档'};}
  if(row.status!=='已领养'||!wbValidDate(row.adoptDate))return {due:false,next:'',label:'已暂停'};
  const early=Number(row.earlyInterval||7),regular=Number(row.regularInterval||30),boundary=wbAddMonth(row.adoptDate),base=row.lastFollowup||row.adoptDate;
  let next=wbAddDays(base,base<boundary?early:regular);
@@ -53,7 +54,7 @@ function wbFollowup(row,asOf=day()){
 function catCategory(store,cat){
  const gone=v=>['死亡','已死亡','去喵星','已去喵星'].includes(v),related=r=>r.catId?r.catId===cat.id:r.cat===cat.name||(cat.aliases||[]).includes(r.cat);
  if([cat.archiveStatus,cat.status,cat.health].some(gone)||wbActive(store,'rescue').some(r=>related(r)&&r.status==='已结束'&&gone(r.outcome)))return '已去喵星';
- return wbActive(store,'adoption').some(r=>related(r)&&r.status==='已领养')?'已领养':'其他';
+ return cat.archiveStatus==='已领养'||wbActive(store,'adoption').some(r=>related(r)&&r.status==='已领养')?'已领养':'其他';
 }
 function wbMigrate(store,asOf=day()){
  store.events??=[];store.sponsors??=[];store.announcements??=[];
@@ -91,6 +92,57 @@ function wbFinance(store,selectedMonth){
  const bills=wbActive(store,'finance'),confirmed=bills.filter(b=>b.status==='已入账'||b.status==='已报销'||b.status==='已结清'),sum=xs=>xs.reduce((a,b)=>a+b.amountCents,0);
  return {income:sum(confirmed.filter(b=>b.flow==='收入'&&b.date.startsWith(selectedMonth))),expense:sum(bills.filter(b=>b.flow!=='收入'&&b.status!=='未通过'&&b.date.startsWith(selectedMonth))),unconfirmed:sum(bills.filter(b=>b.flow==='收入'&&b.status==='待确认'&&b.date.startsWith(selectedMonth))),pending:sum(bills.filter(b=>b.flow==='个人垫付'&&['待审核','审核通过'].includes(b.status))),balance:sum(confirmed.filter(b=>b.flow==='收入'))-sum(confirmed.filter(b=>b.flow==='协会支出'||b.flow==='协会欠款'&&b.status==='已结清'||b.flow==='个人垫付'&&b.status==='已报销'))};
 }
+function archiveProfileError(cat,prior,asOf=day()){
+ if(cat.archiveStatusDate&&(!wbValidDate(cat.archiveStatusDate)||cat.archiveStatusDate>asOf))return '档案状态日期不能晚于今天';
+ if(!['','寄养中','已领养','已去喵星'].includes(cat.archiveStatus||''))return '无效档案状态';
+ if(cat.archiveStatus==='已去喵星'&&(prior?.archiveStatus!=='已去喵星'||cat.memorialDate!==prior?.memorialDate)&&(!wbValidDate(cat.memorialDate)||cat.memorialDate>asOf))return '请填写不晚于今天的去喵星日期';
+ return '';
+}
+function sameCat(a,b){return !!a&&!!b&&(a.catId&&b.catId?a.catId===b.catId:a.cat===b.cat);}
+function catMatchesTab(store,cat,tab){return !tab||tab==='全部'||(tab==='寄养中'?catCategory(store,cat)!=='已去喵星'&&(cat.archiveStatus==='寄养中'||wbActive(store,'foster').some(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&r.status==='寄养中')):catCategory(store,cat)===tab);}
+function businessRuleError(store,type,r,prior,asOf=day()){
+ if(!businessTypes.includes(type)||!r)return '';
+ if(r.deletedAt)return '';
+ const changed=k=>!prior||JSON.stringify(prior[k])!==JSON.stringify(r[k]);
+ const cat=wbActive(store,'cats').find(c=>r.catId?c.id===r.catId:c.name===r.cat);
+ const ongoing={rescue:['待救助','就医中'],foster:['待安置','寄养中'],adoption:['无领养人','有意向领养人','已领养'],sterilization:['待绝育','住院中']}[type]||[];
+ if(cat&&catCategory(store,cat)==='已去喵星'&&((ongoing.includes(r.status)&&(!prior||prior.deletedAt||!sameCat(prior,r)||prior.status!==r.status))||(type==='foster'&&r.status==='已结束'&&r.outcome==='已领养'&&changed('outcome'))))return '已去喵星的猫咪不能开启新业务，可补录已结束的历史';
+ if(type==='sterilization'&&r.cost!==null&&r.cost!==undefined&&r.cost!==''){
+  const cost=r.cost;if(typeof cost!=='number'||!Number.isFinite(cost)||cost<0||cost>1000000||Math.abs(cost*100-Math.round(cost*100))>0.000001)return '费用需为非负金额，最多两位小数且不超过100万元';
+ }
+ if(r.status==='已结束'&&(changed('completedDate')||changed('date')||changed('medicalDate')||changed('status'))){const start=r.medicalDate||r.date;if(!wbValidDate(r.completedDate)||r.completedDate>asOf||wbValidDate(start)&&r.completedDate<start)return '结束日期不能早于开始或就医日期，也不能晚于今天';}
+ if(type==='foster'&&(changed('segments')||changed('date')||changed('status'))){
+  let end='';const segments=r.segments||[];
+  for(let i=0;i<segments.length;i++){const seg=segments[i];if(!seg.place?.trim()||!seg.caregiver?.trim()||!wbValidDate(seg.startDate)||seg.startDate>asOf||end&&seg.startDate<end||seg.endDate&&(!wbValidDate(seg.endDate)||seg.endDate<seg.startDate||seg.endDate>asOf)||!seg.endDate&&i<segments.length-1)return '寄养分段的地点、照护人或日期顺序有误';end=seg.endDate||seg.startDate;}
+  const last=segments.at(-1);if(r.status==='寄养中'&&(!last||last.endDate||last.place!==r.place||last.caregiver!==r.caregiver||last.startDate!==r.date))return '寄养中必须保留与当前地点、照护人、入住日期一致的开放分段';
+  if(r.status!=='寄养中'&&last&&!last.endDate)return '结束或待安置时应先关闭上一段寄养经历';
+ }
+ if(type==='adoption'&&r.status==='已领养'&&(!prior||prior.status!=='已领养')){const latest=wbActive(store,'foster').filter(f=>sameCat(f,r)&&f.status==='寄养中').map(f=>f.date).sort().at(-1);if(latest&&r.adoptDate<latest)return '领养日期不能早于关联寄养的入住日期';}
+ if(type==='adoption'&&r.status==='已退养'&&(!prior||prior.status!=='已退养'||changed('returnDate')||changed('returnDisposition')||changed('returnPlace')||changed('returnCaregiver'))){
+  if(!wbValidDate(r.returnDate)||r.returnDate<r.adoptDate||r.returnDate>asOf||(r.followups||[]).some(e=>e.date>r.returnDate))return '退养日期应在领养日、最后一次回访之后且不晚于今天';
+  if(!['待安置','寄养中'].includes(r.returnDisposition)||!r.returnPlace?.trim()||r.returnDisposition==='寄养中'&&!r.returnCaregiver?.trim())return '退养时需登记当前地点、安置方式，入住寄养还需实际照护人';
+ }
+ if(type==='rescue'&&prior?.status==='已结束'&&prior.outcome==='转寄养'&&(r.status!=='已结束'||r.outcome!=='转寄养')&&wbActive(store,'foster').some(f=>f.sourceRescueId===r.id&&(f.status!=='待安置'||f.segments?.length)))return '关联寄养已有入住经历，请先处理寄养交接，不能直接撤销转寄养结果';
+ if(type==='foster'&&prior?.deletedAt&&r.sourceRescueId){const source=wbActive(store,'rescue').find(x=>x.id===r.sourceRescueId);if(!source||source.status!=='已结束'||source.outcome!=='转寄养')return '原救助结果已更正，不能恢复这段自动寄养';}
+ if(type==='foster'&&prior?.status==='已结束'&&prior.outcome==='已领养'&&(r.status!=='已结束'||r.outcome!=='已领养')){
+  const linked=wbActive(store,'adoption').filter(a=>a.sourceFosterId===r.id&&a.status==='已领养');
+  if(linked.some(a=>!a.autoCreatedByFoster&&!String(a.id).startsWith('AUTO-A-')||a.applicant?.trim()||a.agreements?.length||a.followups?.length))return '关联领养已有人员或归档资料，请先登记退养或更正关联领养，再更正寄养结果';
+ }
+ if(type==='adoption'&&r.status==='已领养'&&prior?.deletedAt&&r.sourceFosterId){const f=wbActive(store,'foster').find(f=>f.id===r.sourceFosterId);if(!f||f.status!=='已结束'||f.outcome!=='已领养')return '原寄养结果已更正，不能恢复这段自动领养';}
+ return '';
+}
+function applyBusinessLinks(store,type,before,after){
+ if(!after||after.deletedAt||before?.deletedAt)return;
+ const linkedCat=wbActive(store,'cats').find(c=>sameCat(after,{catId:c.id,cat:c.name}));if(linkedCat&&catCategory(store,linkedCat)==='已去喵星')return;
+ const related=t=>wbActive(store,t).filter(r=>sameCat(r,after));
+ if(type==='rescue'&&before?.status==='已结束'&&before.outcome==='转寄养'&&(after.status!=='已结束'||after.outcome!=='转寄养'))for(const f of related('foster').filter(f=>f.sourceRescueId===after.id)){f.deletedAt=new Date().toISOString();f.cancellationReason='原救助结果已更正';}
+ if(type==='foster'&&before?.status==='已结束'&&before.outcome==='已领养'&&(after.status!=='已结束'||after.outcome!=='已领养'))for(const a of related('adoption').filter(a=>a.sourceFosterId===after.id&&a.status==='已领养')){a.deletedAt=new Date().toISOString();a.cancellationReason='原寄养结果已更正';}
+ if(type==='adoption'&&after.status==='已领养'&&before?.status!=='已领养')for(const f of related('foster').filter(f=>f.status==='寄养中'||f.status==='待安置')){f.status='已结束';f.outcome='已领养';f.completedDate=after.adoptDate;if(f.segments?.at(-1)&&!f.segments.at(-1).endDate)f.segments.at(-1).endDate=after.adoptDate;f.adoptionId=after.id;after.sourceFosterId||=f.id;}
+ if(type==='adoption'&&after.status==='已退养'&&before?.status!=='已退养'){
+  let f=store.foster.find(f=>f.sourceAdoptionId===after.id);
+  if(!f){f={id:'RETURN-F-'+after.id,cat:after.cat,catId:after.catId||'',sourceAdoptionId:after.id,status:after.returnDisposition,place:after.returnDisposition==='寄养中'?after.returnPlace:'',caregiver:after.returnDisposition==='寄养中'?after.returnCaregiver:'',date:after.returnDate,owner:after.owner||'',situation:'退养交接；当前地点：'+after.returnPlace,segments:[],photos:[]};if(f.status==='寄养中')f.segments.push({id:'RETURN-SEG-'+after.id,place:f.place,caregiver:f.caregiver,startDate:f.date,endDate:'',situation:f.situation});store.foster.unshift(f);}
+ }
+}
 // Sightings come from rescue/sterilization records, never hospital or foster addresses.
 function defaultSightingPlace(store,cat){
  if(!cat)return '';
@@ -101,12 +153,16 @@ function defaultSightingPlace(store,cat){
 // Apply a saved business change once; unrelated edits must not replay old moves.
 function syncBusinessChange(store,type,before,after){
  if(!after||after.deletedAt||before?.deletedAt)return;
- if(['rescue','sterilization'].includes(type)&&['待救助','待绝育'].includes(after.status)&&after.place?.trim()&&(!before||before.place!==after.place))after.sightingUpdatedAt=new Date().toISOString();
+ applyBusinessLinks(store,type,before,after);
+ if(type==='rescue'&&after.status==='已结束'&&['去喵星','死亡'].includes(after.outcome)){const cat=wbActive(store,'cats').find(c=>sameCat(after,{catId:c.id,cat:c.name}));if(cat){cat.archiveStatus='已去喵星';cat.memorialDate||=after.completedDate;cat.memorialRegisteredAt||=new Date().toISOString();}}
+ if(after.locationAction!=='history'&&['rescue','sterilization'].includes(type)&&['待救助','待绝育'].includes(after.status)&&after.place?.trim()&&(!before||before.place!==after.place))after.sightingUpdatedAt=new Date().toISOString();
  if(type==='foster'&&after.status!=='待安置'&&after.segments?.length&&after.situation!==before?.situation){after.segments.at(-1).situation=after.situation||'';}
+ if(before&&after.status===before.status&&after.locationAction==='history')return;
  const destination=r=>{
   if(!r)return '';
   if(type==='rescue')return r.status==='就医中'?r.hospital:r.status==='待救助'?r.place:r.status==='已结束'&&r.outcome==='放归'?r.releasePlace:'';
   if(type==='sterilization')return r.status==='住院中'?r.hospital:r.status==='已放归'?r.releasePlace:r.status==='待绝育'?r.place:'';
+  if(type==='adoption')return r.status==='已退养'?r.returnPlace:r.status==='已领养'?r.adoptPlace||'领养家庭':'';
   if(type==='foster')return r.status==='寄养中'?r.place:r.status==='已结束'&&r.outcome==='已放归'?r.releasePlace:'';
   return '';
  };
@@ -114,23 +170,24 @@ function syncBusinessChange(store,type,before,after){
  if(!place||['待确定','待确认','待补充','未填写','待安置'].includes(place))return;
  if(before&&(before.catId&&after.catId?before.catId===after.catId:before.cat===after.cat)&&before.status===after.status&&before.outcome===after.outcome&&String(destination(before)||'').trim()===place)return;
  const cat=wbActive(store,'cats').find(c=>after.catId?c.id===after.catId:c.name===after.cat);
- if(cat)cat.place=place;
+ if(cat&&catCategory(store,cat)!=='已去喵星')cat.place=place;
 }
 function wbSync(store,asOf=day()){
  const active=t=>wbActive(store,t),works=[];
+ for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status)&&wbValidDate(r.surgeryDate)&&r.surgeryDate<=asOf){const cat=active('cats').find(c=>sameCat(r,{catId:c.id,cat:c.name}));if(cat)cat.neuterStatus='已绝育';}
  // Stable source ids ensure repeated saves/reloads do not duplicate linked records.
  for(const r of active('rescue'))if(r.status==='已结束'&&r.outcome==='转寄养'&&!store.foster.some(f=>f.sourceRescueId===r.id))store.foster.unshift({id:'AUTO-F-'+r.id,cat:r.cat||'',catId:r.catId||'',place:'',caregiver:'',owner:'',date:r.completedDate||asOf,endDate:'',status:'待安置',outcome:'',note:r.issue||'',photos:[...(r.photos||[])],segments:[],checklist:{},sourceRescueId:r.id});
- for(const f of active('foster'))if(f.status==='已结束'&&f.outcome==='已领养'&&!store.adoption.some(a=>a.sourceFosterId===f.id)){
+ for(const f of active('foster'))if(f.status==='已结束'&&f.outcome==='已领养'&&!active('cats').some(c=>sameCat(f,{catId:c.id,cat:c.name})&&catCategory(store,c)==='已去喵星')&&!f.externalAdoption&&!store.adoption.some(a=>a.sourceFosterId===f.id)){
   let a=active('adoption').find(a=>a.cat===f.cat&&['有意向领养人','已领养'].includes(a.status));
-  if(!a){a={id:'AUTO-A-'+f.id,cat:f.cat,catId:f.catId||'',applicant:'',owner:'',date:f.completedDate||asOf,note:'由寄养结束自动建立',agreements:[],earlyInterval:7,regularInterval:30,lastFollowup:''};store.adoption.unshift(a);}
+  if(!a){a={id:'AUTO-A-'+f.id,cat:f.cat,catId:f.catId||'',applicant:'',owner:'',date:f.completedDate||asOf,autoCreatedByFoster:true,note:'由寄养结束自动建立',agreements:[],earlyInterval:7,regularInterval:30,lastFollowup:''};store.adoption.unshift(a);}
   a.sourceFosterId=f.id;a.status='已领养';a.adoptDate||=f.completedDate||asOf;
  }
- for(const a of active('adoption'))if(a.status==='已退养'&&!active('adoption').some(b=>b.cat===a.cat&&['无领养人','有意向领养人','已领养'].includes(b.status)))store.adoption.unshift({id:'RETURN-'+a.id,cat:a.cat,catId:a.catId||'',applicant:'',owner:'',date:a.returnDate||asOf,status:'无领养人',note:'上一段领养已结束，历史协议保留。',agreements:[],earlyInterval:7,regularInterval:30,adoptDate:'',lastFollowup:'',sourceAdoptionId:a.id});
+ for(const a of active('adoption'))if(a.status==='已退养'&&!active('cats').some(c=>sameCat(a,{catId:c.id,cat:c.name})&&catCategory(store,c)==='已去喵星')&&!active('adoption').some(b=>b.cat===a.cat&&['无领养人','有意向领养人','已领养'].includes(b.status)))store.adoption.unshift({id:'RETURN-'+a.id,cat:a.cat,catId:a.catId||'',applicant:'',owner:'',date:a.returnDate||asOf,status:'无领养人',note:'上一段领养已结束，历史协议保留。',photos:[],followups:[],followupState:'待回访',nextFollowupDate:'',returnDate:'',agreements:[],earlyInterval:7,regularInterval:30,adoptDate:'',lastFollowup:'',sourceAdoptionId:a.id});
  const add=(type,r,date,title,result,amountCents,pendingCents)=>{if(wbValidDate(date)&&date<=asOf)works.push({sourceType:type,sourceId:r.id,title,category:type==='sales'?'文创销售':type==='movements'?'物资盘点':names[type],cat:r.cat||'公共事项',owner:r.owner||'',date,result,amountCents,pendingCents,auto:true});};
  for(const r of active('rescue'))if(['就医中','已结束'].includes(r.status))add('rescue',r,r.medicalDate||(r.status==='就医中'?r.date||asOf:r.completedDate||r.date),(r.cat||r.place||'未建档猫咪')+(r.status==='已结束'?' · 救助结束':' · 救助就医'),r.status==='已结束'?r.outcome||r.issue||'已结束':r.issue||'已就医，继续跟进');
  for(const r of active('foster'))if(r.status==='已结束')add('foster',r,r.completedDate||r.endDate||r.date,(r.cat||'未命名猫咪')+' · 寄养结束',r.outcome||r.note||'已结束');
  for(const r of active('adoption'))if(['已领养','已退养'].includes(r.status))add('adoption',r,r.adoptDate,(r.cat||'未命名猫咪')+' · 领养',r.applicant?'领养人：'+r.applicant:'已建立独立领养经历');
- for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status))add('sterilization',r,r.surgeryDate||(wbValidDate(r.date)&&r.date<=asOf?r.date:asOf),r.cat+' · 绝育手术',r.hospital||'住院中，继续跟进放归');
+ for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status)&&wbValidDate(r.surgeryDate)&&r.surgeryDate<=asOf)add('sterilization',r,r.surgeryDate||(wbValidDate(r.date)&&r.date<=asOf?r.date:asOf),r.cat+' · 绝育手术',r.hospital||'住院中，继续跟进放归');
  for(const r of active('movements'))if(r.type==='盘点')add('movements',r,r.date,r.itemName+' · 物资盘点','实盘在库 '+r.quantity+' '+(store.inventory.find(i=>i.id===r.itemId)?.unit||''));
  const saleBills=active('finance'),getBill=s=>saleBills.find(b=>b.saleId===s.id);
  const onlineMonths=[...new Set(active('sales').filter(s=>s.channel==='线上').map(s=>s.date.slice(0,7)))];
@@ -163,5 +220,5 @@ function migrateData(input,{defaults={},extraInventory=[],asOf=day()}={}){
  return input;
 }
 
-return {defaultSightingPlace,syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
+return {archiveProfileError,catMatchesTab,businessRuleError,applyBusinessLinks,defaultSightingPlace,syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
 });

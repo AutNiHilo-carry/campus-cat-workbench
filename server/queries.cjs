@@ -30,14 +30,15 @@ function listRecords(store,collection,params,user){
  if(collection==='movements'&&get('group'))add(`(${field('itemId')} IS NULL OR ${field('itemId')}='' OR EXISTS(SELECT 1 FROM records i WHERE i.collection='inventory' AND i.id=${field('itemId')} AND json_extract(i.body,'$.group')=?))`,get('group'));
  const tab=get('tab');
  if(['events','sponsors'].includes(collection)){if(collection==='events'&&tab==='即将开展'){add(`${field('date')}>=? AND ${field('status')} NOT IN ('已完成','已取消')`,today());}else if(tab&&tab!=='全部'){assert(domain.outreachStates[collection].includes(tab),'无效活动或赞助状态');exact('status',tab);}if(get('eventId'))exact('eventId',get('eventId'));}
- if(collection==='cats'&&tab&&tab!=='全部'){assert(['已领养','已去喵星'].includes(tab),'无效档案分类');const state=store.load(),categories=new Map(state.cats.map(c=>[c.id,domain.catCategory(state,c)]));db.function('danmiao_cat_category',id=>categories.get(id)||'其他');add('danmiao_cat_category(r.id)=?',tab);}
+ if(collection==='cats'&&tab&&tab!=='全部'){assert(['寄养中','已领养','已去喵星'].includes(tab),'无效档案分类');const state=store.load(),categories=new Map(state.cats.map(c=>[c.id,domain.catMatchesTab(state,c,tab)?tab:'其他']));db.function('danmiao_cat_category',id=>categories.get(id)||'其他');add('danmiao_cat_category(r.id)=?',tab);}
+ if(['rescue','foster','sterilization','adoption'].includes(collection)&&tab&&tab!=='全部'&&tab!=='已结束'&&tab!=='已放归'&&!(collection==='adoption'&&tab==='已领养')){const state=store.load();db.function('danmiao_memorial_record',text=>{const r=JSON.parse(text),cat=state.cats.find(c=>r.catId?c.id===r.catId:c.name===r.cat);return cat&&domain.catCategory(state,cat)==='已去喵星'?1:0;});add('danmiao_memorial_record(r.body)=0');}
  if(['rescue','foster'].includes(collection)&&tab&&tab!=='全部')exact('status',tab);
  if(collection==='sterilization'&&tab){exact('status',tab);if(tab==='已放归'&&month)add(`substr(${field('releaseDate')},1,7)=?`,month);}
  if(collection==='adoption'&&tab){
   if(tab==='已领养'){
-   db.function('danmiao_followup',text=>domain.followup(JSON.parse(text),today()).label);
+   const followState=store.load();db.function('danmiao_followup',text=>domain.followup(JSON.parse(text),today(),followState).label);
    const completed=get('followup')==='已回访';
-   add(`((${field('status')}='已领养' AND danmiao_followup(r.body)=?)${completed&&get('history')==='1'?` OR ${field('status')}='已退养'`:''})`,completed?'已完成':'待回访');
+   add(`((${field('status')}='已领养' AND danmiao_followup(r.body) IN (?,?))${completed&&get('history')==='1'?` OR ${field('status')}='已退养'`:''})`,completed?'已完成':'待回访',completed?'已归档':'待回访');
   }else{add(`${field('status')} IN ('无领养人','有意向领养人')`);if(get('intent')&&get('intent')!=='全部')exact('status',get('intent'));}
  }
  if(collection==='finance'){

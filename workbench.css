@@ -90,3 +90,11 @@ summary.experience-card-head{cursor:pointer;list-style:none}summary.experience-c
 .cat-profile-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;flex:none}@media(max-width:640px){.cat-detail-head{flex-wrap:wrap}.cat-profile-actions{flex-basis:100%;justify-content:flex-end}}
 
 @media(max-width:720px){td[data-label="最近目击地点"]:has(.sighting-not-applicable){display:none}}
+
+.business-photo-preview{display:block;border:1px solid transparent;border-radius:8px;padding:6px;background:transparent;text-align:left;cursor:pointer;color:#3477ad;max-width:190px}.business-photo-preview>span{display:flex;gap:5px;flex-wrap:wrap}.business-photo-preview img{width:52px;height:52px;object-fit:cover;border-radius:7px;border:1px solid #e0e8e1}.business-photo-preview small{display:block;margin-top:5px;font-size:12px}.business-photo-preview:hover,.business-photo-preview:focus-visible{background:#edf5ef;border-color:#bbd5c7;outline:none}@media(max-width:720px){.business-photo-preview{max-width:calc(100% - 84px)}.business-photo-preview img{width:58px;height:58px}}
+
+.cat-card.is-memorial .cat-portrait,.cat-cell.is-memorial .cat-face,.cat-detail-head.is-memorial .detail-cat-portrait{filter:grayscale(1)}
+
+@media(max-width:720px){td[data-label="医院"]:has(.hospital-not-applicable){display:none}}
+
+.foster-hospital-hint{display:block;max-width:260px;margin-top:7px;color:#3477ad;font-size:12px;line-height:1.7;white-space:normal}

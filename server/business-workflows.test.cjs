@@ -1,0 +1,52 @@
+const {test}=require('node:test'),assert=require('node:assert/strict');
+const D=require('../shared-domain.js'),V=require('./validation.cjs'),{COLLECTIONS}=require('./store.cjs');
+const date=D.day(),user={id:'BUSINESS-ADMIN',name:'测试管理员',role:'admin'};
+function fresh(){return D.normalize({...Object.fromEntries(COLLECTIONS.map(c=>[c,[]])),audit:[],activities:[],schemaVersion:4,cats:[{id:'C-RULE',name:'业务猫',place:'初始地点',discoveryPlace:'初始地点',health:''}]});}
+function commit(state,collection,values){const before=structuredClone(state[collection].find(r=>r.id===values.id)||null),after={...before,...values};const {next}=V.applyChanges(state,[{collection,id:values.id,before,after}],user);V.validateState(next,state,()=>null);return D.normalize(next);}
+const cat={catId:'C-RULE',cat:'业务猫'};
+function foster(){return {...cat,id:'F-RULE',status:'寄养中',place:'寄养点',caregiver:'照护人',date,segments:[{id:'SEG-RULE',place:'寄养点',caregiver:'照护人',startDate:date,endDate:''}],situation:'寄养观察'};}
+test('preoperative hospital stays do not claim surgery; completion synchronizes neutering and work',()=>{
+ let s=fresh();s=commit(s,'sterilization',{...cat,id:'S-RULE',status:'住院中',hospital:'医院',date,cost:null});assert.equal(s.monthly.length,0);assert.notEqual(s.cats[0].neuterStatus,'已绝育');assert.equal(s.cats[0].place,'医院');
+ s=commit(s,'sterilization',{id:'S-RULE',surgeryDate:date,cost:0});assert.equal(s.cats[0].neuterStatus,'已绝育');assert.equal(s.monthly.filter(r=>r.sourceType==='sterilization').length,1);assert.equal(s.sterilization[0].cost,0);
+ for(const cost of [-1,1.001,'12',1000001])assert.throws(()=>commit(s,'sterilization',{id:'S-RULE',cost}),/费用/);
+ assert.equal(s.sterilization[0].cost,0);
+});
+test('adoption closes fostering atomically and returning requires a preserved handoff',()=>{
+ let s=commit(fresh(),'foster',foster());s=commit(s,'adoption',{...cat,id:'A-RULE',status:'已领养',applicant:'领养人',adoptDate:date,agreements:[],followups:[{id:'FOLLOW-RULE',date,note:'原回访',photos:[]}]});
+ assert.equal(s.foster[0].status,'已结束');assert.equal(s.foster[0].segments[0].endDate,date);assert.equal(s.foster[0].outcome,'已领养');
+ assert.throws(()=>commit(s,'adoption',{id:'A-RULE',status:'已退养',returnDate:date}),/退养时需/);
+ s=commit(s,'adoption',{id:'A-RULE',status:'已退养',returnDate:date,returnDisposition:'寄养中',returnPlace:'新寄养点',returnCaregiver:'新照护人'});
+ assert.equal(s.adoption.find(a=>a.id==='A-RULE').followups[0].note,'原回访');assert.equal(s.adoption.filter(a=>a.sourceAdoptionId==='A-RULE').length,1);assert.equal(s.foster.filter(f=>f.sourceAdoptionId==='A-RULE').length,1);assert.equal(s.cats[0].place,'新寄养点');
+ s=commit(s,'adoption',{id:'A-RULE',note:'补充说明'});assert.equal(s.foster.filter(f=>f.sourceAdoptionId==='A-RULE').length,1);
+});
+test('foster outcome corrections cancel only empty generated adoptions and preserve real archives',()=>{
+ let s=commit(fresh(),'foster',foster());s=commit(s,'foster',{id:'F-RULE',status:'已结束',outcome:'已领养',completedDate:date,segments:s.foster[0].segments.map(seg=>({...seg,endDate:date}))});
+ const auto=s.adoption[0];assert.equal(auto.status,'已领养');
+ const corrected=commit(s,'foster',{id:'F-RULE',outcome:'已放归',releasePlace:'放归点',releaseDate:date});assert.ok(corrected.adoption[0].deletedAt);assert.equal(s.adoption[0].deletedAt,undefined);assert.throws(()=>commit(corrected,'adoption',{id:auto.id,deletedAt:''}),/原寄养结果已更正/);
+ s=commit(s,'adoption',{id:auto.id,applicant:'已确认领养人'});assert.throws(()=>commit(s,'adoption',{id:auto.id,applicant:'不应覆盖的新人'}),/更换领养人/);assert.throws(()=>commit(s,'foster',{id:'F-RULE',outcome:'已放归',releasePlace:'放归点',releaseDate:date}),/关联领养已有/);assert.equal(s.foster[0].outcome,'已领养');
+});
+test('memorial profiles require a date, block new workflows, and permit historical entries',()=>{
+ let s=fresh();assert.throws(()=>commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星'}),/去喵星日期/);
+ s=commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星',memorialDate:date});
+ for(const [collection,record]of [['rescue',{status:'待救助',place:'地点',issue:'观察'}],['sterilization',{status:'待绝育',place:'地点',cost:0}],['adoption',{status:'已领养',adoptDate:date}],['foster',foster()]])assert.throws(()=>commit(s,collection,{...cat,...record,id:'NEW-'+collection}),/已去喵星/);
+ s=commit(s,'rescue',{...cat,id:'HISTORY-RULE',status:'已结束',outcome:'放归',place:'旧目击点',issue:'历史补录',completedDate:date,releasePlace:'历史放归点',releaseDate:date});assert.equal(s.cats[0].place,'初始地点');
+});
+test('ended dates and foster segment history are checked on corrections as well as creation',()=>{
+ let s=commit(fresh(),'foster',foster());assert.throws(()=>commit(s,'foster',{id:'F-RULE',segments:[{...s.foster[0].segments[0],startDate:'2099-01-01'}]}),/寄养分段/);
+ s=commit(s,'foster',{id:'F-RULE',status:'已结束',outcome:'已放归',completedDate:date,releaseDate:date,releasePlace:'放归点',segments:[{...s.foster[0].segments[0],endDate:date}]});assert.throws(()=>commit(s,'foster',{id:'F-RULE',completedDate:'2000-01-01'}),/结束日期/);
+});
+test('profile-only adoption/fostering is classified without inventing association records',()=>{
+ let s=commit(fresh(),'cats',{id:'C-RULE',archiveStatus:'寄养中',profileOnly:true});assert.equal(D.catMatchesTab(s,s.cats[0],'寄养中'),true);assert.equal(s.foster.length,0);
+ s=commit(s,'cats',{id:'C-RULE',archiveStatus:'已领养',profileOnly:true});assert.equal(D.catCategory(s,s.cats[0]),'已领养');assert.equal(s.adoption.length,0);
+});
+test('historical location corrections do not replay old moves',()=>{
+ let s=commit(fresh(),'rescue',{...cat,id:'R-LOCATION-HISTORY',place:'发现点',issue:'观察',status:'就医中',hospital:'旧医院',medicalDate:date});
+ s=commit(s,'foster',foster());assert.equal(s.cats[0].place,'寄养点');
+ s=commit(s,'rescue',{id:'R-LOCATION-HISTORY',hospital:'更正后的旧医院',locationAction:'history'});assert.equal(s.cats[0].place,'寄养点');
+ s=commit(s,'rescue',{id:'R-LOCATION-HISTORY',hospital:'实际新医院',locationAction:'move'});assert.equal(s.cats[0].place,'实际新医院');
+});
+test('correcting a rescue result cancels only an unused automatic placement',()=>{
+ let s=commit(fresh(),'rescue',{...cat,id:'R-LINK',status:'已结束',place:'发现点',issue:'观察',outcome:'转寄养',completedDate:date});const fid=s.foster[0].id;
+ const corrected=commit(s,'rescue',{id:'R-LINK',outcome:'放归',releasePlace:'实际放归点',releaseDate:date});assert.ok(corrected.foster[0].deletedAt);assert.throws(()=>commit(corrected,'foster',{id:fid,deletedAt:''}),/原救助结果已更正/);
+ s=commit(s,'foster',{id:fid,...foster(),id:fid});assert.throws(()=>commit(s,'rescue',{id:'R-LINK',outcome:'放归',releasePlace:'实际放归点',releaseDate:date}),/已有入住经历/);
+});

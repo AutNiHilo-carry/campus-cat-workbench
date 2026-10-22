@@ -23,8 +23,8 @@ assert.equal(call('wbBusinessSave','foster',{...foster,status:'待安置'},run('
 assert.equal(call('wbBusinessSave','foster',{...foster,place:'二号寄养点',caregiver:'周同学'},run('fosterId')),true);eq("find('foster',fosterId).segments.length",2);
 assert.equal(call('wbBusinessSave','foster',{...foster,place:'二号寄养点',status:'已结束',outcome:'已领养',completedDate:day},run('fosterId')),true);eq('data.adoption.filter(a=>a.sourceFosterId===fosterId).length',1);
 run('const adoptId=data.adoption.find(a=>a.sourceFosterId===fosterId).id');
-assert.equal(call('wbBusinessSave','adoption',{cat:'测试猫',applicant:'测试领养人',status:'已退养',adoptDate:day,earlyInterval:7,regularInterval:30,owner:''},run('adoptId')),true);
-eq("data.adoption.filter(a=>a.cat==='测试猫'&&a.status==='无领养人').length",1);eq('data.foster.filter(f=>f.sourceAdoptionId===adoptId).length',0);eq("find('adoption',adoptId).status",'已退养');
+assert.equal(call('wbBusinessSave','adoption',{cat:'测试猫',applicant:'测试领养人',status:'已退养',returnDate:day,returnDisposition:'待安置',returnPlace:'退养交接点',adoptDate:day,earlyInterval:7,regularInterval:30,owner:''},run('adoptId')),true);
+eq("data.adoption.filter(a=>a.cat==='测试猫'&&a.status==='无领养人').length",1);eq('data.foster.filter(f=>f.sourceAdoptionId===adoptId).length',1);eq("find('adoption',adoptId).status",'已退养');
 // Independent sterilization state lists, release-month filter, operation-date work archive.
 const surgery={cat:'绝育测试猫',capturer:'',status:'住院中',hospital:'测试医院',surgeryDate:'2026-09-12',cost:'123.45'};
 assert.equal(call('wbBusinessSave','sterilization',surgery),true);run('const surgeryId=data.sterilization[0].id');
@@ -102,7 +102,7 @@ assert.equal(call('wbCreateLocation','I004',{place:'新地点',qty:'3'}),false);
 assert.equal(call('wbCreateLocation','I004',{place:'错误地点',qty:'-1'}),false);
 // Reopening an adopted cat preserves the signed episode and starts a separate unassigned episode.
 run("writeRecord('adoption',{cat:'回退测试',status:'已领养',applicant:'原领养人',adoptDate:today,earlyInterval:7,regularInterval:30,agreements:[{id:'contract-test',name:'保留.pdf'}],photos:[]});const reopenId=data.adoption[0].id");
-assert.equal(call('wbBusinessSave','adoption',{cat:'回退测试',status:'无领养人',applicant:'原领养人',adoptDate:day,earlyInterval:7,regularInterval:30},run('reopenId')),true);
+assert.equal(call('wbBusinessSave','adoption',{cat:'回退测试',status:'无领养人',returnDate:day,returnDisposition:'待安置',returnPlace:'退养交接点',applicant:'原领养人',adoptDate:day,earlyInterval:7,regularInterval:30},run('reopenId')),true);
 eq("find('adoption',reopenId).status",'已退养');eq("find('adoption',reopenId).agreements[0].name",'保留.pdf');eq('data.adoption.find(a=>a.sourceAdoptionId===reopenId).agreements.length',0);eq('data.adoption.find(a=>a.sourceAdoptionId===reopenId).status','无领养人');
 console.log('PASS: location creation guards and agreement-preserving adoption reopening.');
 
@@ -274,7 +274,7 @@ assert.equal(call('wbRemoveFile','cats',run('albumCatId'),'photos','FOLLOW-PHOTO
 eq("wbCatFollowups(find('cats',albumCatId))[0].entry.photos[0].id",'FOLLOW-PHOTO-1');
 const invalidVisit={followupState:'已完成',completionDate:day,newEntry:true,followupPhotos:Array.from({length:13},(_,i)=>({id:'X'+i,name:'x.png'}))};
 assert.equal(call('wbSaveFollowup',run('albumAdoptionId'),invalidVisit),false);eq("find('adoption',albumAdoptionId).followups.length",2);
-run("wbBusinessSave('adoption',{...find('adoption',albumAdoptionId),status:'已退养'},albumAdoptionId)");eq("wbCatFollowups(find('cats',albumCatId)).length",2);
+run("wbBusinessSave('adoption',{...find('adoption',albumAdoptionId),status:'已退养',returnDate:today,returnDisposition:'待安置',returnPlace:'交接点'},albumAdoptionId)");eq("wbCatFollowups(find('cats',albumCatId)).length",2);
 run("const albumRoundtrip=JSON.parse(JSON.stringify(data));");eq("albumRoundtrip.adoption.find(r=>r.id===albumAdoptionId).followups[1].photos[0].id",'FOLLOW-PHOTO-2');
 console.log('PASS: independent same-day follow-up records, photo/profile synchronization, per-cat albums and historical adoption retention.');
 
@@ -287,13 +287,13 @@ assert.equal(call('wbSaveCatProfile',{name:' 一致性新名字 ',sex:'公',age:
 eq("find('stories',consistentStory).cat",'一致性新名字');eq("find('adoption',consistentAdoption).cat",'一致性新名字');eq("wbFindCat('一致性验证猫').id",run('consistentCat'));
 assert.equal(call('wbSaveCatProfile',{name:'一致性验证猫'}),false);
 assert.equal(call('wbBusinessSave','adoption',{...run("find('adoption',consistentAdoption)"),cat:'错误换猫'},run('consistentAdoption')),false);eq("wbFindCat('错误换猫')",undefined);
-assert.equal(call('wbBusinessSave','adoption',{...run("find('adoption',consistentAdoption)"),status:'无领养人'},run('consistentAdoption')),true);
+assert.equal(call('wbBusinessSave','adoption',{...run("find('adoption',consistentAdoption)"),status:'无领养人',returnDate:day,returnDisposition:'待安置',returnPlace:'交接点'},run('consistentAdoption')),true);
 run("const reopenedConsistent=data.adoption.find(a=>a.sourceAdoptionId===consistentAdoption)");eq('reopenedConsistent.followups.length',0);eq('reopenedConsistent.agreements.length',0);eq('reopenedConsistent.lastFollowup','');eq('reopenedConsistent.nextFollowupDate','');eq('reopenedConsistent.catId',run('consistentCat'));
 eq("find('adoption',consistentAdoption).followups.length",1);eq("find('adoption',consistentAdoption).agreements[0].id",'KEPT-CONTRACT');eq("wbCatFollowups(find('cats',consistentCat)).length",1);
 // Returning to adoption reuses an already existing pending draft without overwriting it.
 call('wbBusinessSave','adoption',{cat:'并行草稿验证猫',status:'已领养',adoptDate:day,applicant:'原领养人'});run('const draftOld=data.adoption[0].id');
 call('wbBusinessSave','adoption',{cat:'并行草稿验证猫',status:'有意向领养人',applicant:'新意向人',adoptionCopy:'必须保留草稿文案'});run('const draftKept=data.adoption[0].id');
-assert.equal(call('wbBusinessSave','adoption',{...run("find('adoption',draftOld)"),status:'无领养人'},run('draftOld')),true);eq("find('adoption',draftKept).adoptionCopy",'必须保留草稿文案');eq("find('adoption',draftKept).applicant",'新意向人');
+assert.equal(call('wbBusinessSave','adoption',{...run("find('adoption',draftOld)"),status:'无领养人',returnDate:day,returnDisposition:'待安置',returnPlace:'交接点'},run('draftOld')),true);eq("find('adoption',draftKept).adoptionCopy",'必须保留草稿文案');eq("find('adoption',draftKept).applicant",'新意向人');
 // Stale dialogs cannot mutate deleted records, or recreate them by id.
 run("find('rescue',medicalId).deletedAt='test';const staleBefore=JSON.stringify(find('rescue',medicalId));wbSync(data)");
 assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'不应保存',issue:'不应保存',status:'待救助'},run('medicalId')),false);
@@ -312,7 +312,7 @@ eq("find('rescue',noteRecord).owner",'原负责人');eq("find('rescue',noteRecor
 run("page='rescue';const notesHTML=wbBusinessTable([find('rescue',noteRecord)])");assert.match(run('notesHTML'),/wb-rescue-notes/);assert.match(run('notesHTML'),/&lt;b&gt;/);
 assert.equal(call('wbBusinessSave','rescue',{...run("find('rescue',noteRecord)"),status:'就医中',hospital:''},run('noteRecord')),false);
 assert.equal(call('wbBusinessSave','rescue',{...run("find('rescue',noteRecord)"),status:'就医中',hospital:'测试医院'},run('noteRecord')),true);
-assert.match(run("page='rescue';wbBusinessTable([find('rescue',noteRecord)])"),/测试医院/);
+assert.match(run("page='rescue';wbBusinessTab.rescue='就医中';wbBusinessTable([find('rescue',noteRecord)])"),/测试医院/);
 call('wbHandleAction','wb-rescue-notes',{id:run('noteRecord')});assert.match(el('#fields').innerHTML,/name="nextStep"/);
 assert.equal(call('submitHandler',{issue:'完整情况',nextStep:''}),true);eq("find('rescue',noteRecord).nextStep",'');
 // Classification follows current adoption, old outcomes migrate, and gone takes priority.
@@ -380,7 +380,7 @@ assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',
 assert.match(run("wbExperienceCard('foster',find('foster',factsFoster))"),/<dt>寄养情况<\/dt><dd>观察正常 &lt;测试&gt;<\/dd>/);
 assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'测试三号点',caregiver:'丙',date:'2099-01-01'}),false);
 run("window.DanmiaoBackend={user:{role:'viewer'}}");assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'无权修改'}),false);run('delete window.DanmiaoBackend');
-view('rescue');assert.match(el('#wb-list').innerHTML,/<th>猫咪<\/th><th>最近目击地点<\/th>/);
+run("wbBusinessTab.rescue='全部'");view('rescue');assert.match(el('#wb-list').innerHTML,/<th>猫咪<\/th><th>照片<\/th><th>最近目击地点<\/th>/);
 console.log('PASS: direct cost/area edits, hospital/date order, separate rescue place, foster situation history and safe placement handoffs.');
 // Health is independent from discovery notes and optional on new profiles.
 eq("initial.cats.every(c=>c.health==='')",true);
@@ -432,3 +432,22 @@ eq('wbCatStatusLabels(find("cats",discoveryCat)).join(",")','待领养,住院中
 run('find("cats",discoveryCat).archiveStatus="已去喵星"');eq('wbCatStatusLabels(find("cats",discoveryCat)).join(",")','已去喵星');
 call('wbCatProfile',run('find("cats",discoveryCat)'));assert.match(el('#fields').innerHTML,/cat-profile-actions/);assert.equal((el('#fields').innerHTML.match(/>编辑档案</g)||[]).length,1);
 console.log('PASS: sighting defaults/visibility, real release locations, derived paw badges and top profile actions.');
+// Preoperative admissions, completed surgery, external profile statuses and memorials.
+assert.equal(call('wbBusinessSave','sterilization',{cat:'术前流程测试猫',status:'住院中',hospital:'术前医院',surgeryDate:'',cost:''}),true);run('const preopSurgery=data.sterilization[0].id');
+eq('data.monthly.some(w=>w.sourceId===preopSurgery)',false);eq('wbFindCat("术前流程测试猫").neuterStatus','');
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('preopSurgery'),'medical',{hospital:'术前医院',surgeryDate:day}),true);eq('wbFindCat("术前流程测试猫").neuterStatus','已绝育');eq('data.monthly.some(w=>w.sourceId===preopSurgery)',true);
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('preopSurgery'),'cost',{cost:'1.001'}),false);
+run('const profileOnlyAdoptions=data.adoption.length,profileOnlyFosters=data.foster.length');
+assert.equal(call('wbSubmitCatProfile',{name:'外部领养测试猫',discoveryPlace:'校内',archiveStatus:'已领养'}),false);assert.match(el('#fields').innerHTML,/profileRecordChoice/);
+assert.equal(call('submitHandler',{profileRecordChoice:'profile',archiveStatusDate:day}),true);eq('data.adoption.length',run('profileOnlyAdoptions'));eq('DanmiaoDomain.catCategory(data,wbFindCat("外部领养测试猫"))','已领养');
+assert.equal(call('wbSaveCatProfile',{name:'外部寄养测试猫',discoveryPlace:'校内',archiveStatus:'寄养中',profileRecordChoice:'profile',archiveStatusDate:day}),true);eq('data.foster.length',run('profileOnlyFosters'));eq('DanmiaoDomain.catMatchesTab(data,wbFindCat("外部寄养测试猫"),"寄养中")',true);
+assert.equal(call('wbSaveCatProfile',{name:'档案建业务猫',discoveryPlace:'校内',place:'寄养点',archiveStatus:'寄养中',profileRecordChoice:'create',archiveStatusDate:day,profileCaregiver:'照护人'}),true);
+run('const profileManagedCat=wbFindCat("档案建业务猫").id');eq('data.foster.some(f=>f.catId===profileManagedCat&&f.status==="寄养中")',true);
+assert.equal(call('wbSaveCatProfile',{name:'档案建业务猫',archiveStatus:'已领养',profileRecordChoice:'create',archiveStatusDate:day,profileApplicant:'实际领养人'},run('profileManagedCat')),true);eq('data.foster.some(f=>f.catId===profileManagedCat&&f.status==="寄养中")',false);eq('data.adoption.some(a=>a.catId===profileManagedCat&&a.status==="已领养")',true);
+assert.equal(call('wbSaveCatProfile',{name:'档案建业务猫',archiveStatus:'已去喵星'},run('profileManagedCat')),false);
+assert.equal(call('wbSaveCatProfile',{name:'档案建业务猫',archiveStatus:'已去喵星',memorialDate:day},run('profileManagedCat')),true);
+eq('!!find("cats",profileManagedCat).memorialRegisteredAt',true);assert.match(call('catCell','档案建业务猫'),/is-memorial/);
+eq('wbFollowup(data.adoption.find(a=>a.catId===profileManagedCat)).label','已归档');
+run("wbBusinessTab.cats='寄养中'");view('cats');assert.match(el('#wb-list').innerHTML,/外部寄养测试猫/);assert.doesNotMatch(el('#wb-list').innerHTML,/档案建业务猫/);
+run("wbBusinessTab.rescue='待救助'");view('rescue');assert.doesNotMatch(el('#wb-list').innerHTML,/<th>医院<\/th>/);assert.match(el('#wb-list').innerHTML,/<th>照片<\/th>/);
+console.log('PASS: preoperative surgery stages, profile-only/managed records, memorial date/grayscale/archived follow-up and foster filtering.');

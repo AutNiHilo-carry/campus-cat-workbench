@@ -12,7 +12,7 @@ files.update({"package.json", ".gitignore", "start-local.cmd", "login.html", "ba
 files.update({"ACCOUNT-RECOVERY.md", "RECOVERY-DRILL.md"})
 files.add("server/demo-seed.json")
 files.add("LICENSES/MIT-HISTORICAL.txt")
-files.update({"Dockerfile", "compose.yaml", "Caddyfile", ".dockerignore", ".env.example", ".gitattributes", "DEPLOYMENT.md", "GITHUB.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CONTRIBUTING.md", "SECURITY.md", "UPGRADE-NOTES.md", "PROJECT-AUDIT.md", ".github/workflows/check.yml"})
+files.update({"Dockerfile", "compose.yaml", "Caddyfile", ".dockerignore", ".env.example", ".gitattributes", "DEPLOYMENT.md", "GITHUB.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CONTRIBUTING.md", "SECURITY.md", "UPGRADE-NOTES.md", "PROJECT-AUDIT.md", "BUSINESS-RULES.md", ".github/workflows/check.yml"})
 files.update(str(p.relative_to(root)).replace("\\", "/") for p in (root / "server").glob("*.cjs") if p.name != "ui-fixture.cjs")
 output = root / "danmiao-local-backend.zip"
 with ZipFile(output, "w", ZIP_DEFLATED) as archive:

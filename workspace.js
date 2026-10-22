@@ -36,7 +36,7 @@ function writeRecord(type,values,id){
 }
 function badge(text){return `<span class="badge ${/待|预约/.test(text)?'orange':/就医|试养|垫付/.test(text)?'purple':/逾期|不足/.test(text)?'red':''}">${esc(text)}</span>`}
 function person(name){return `<span class="person"><span class="mini-avatar">${name?esc(name[0]):'○'}</span>${esc(name||'待认领')}</span>`}
-function catCell(name){const c=data.cats.find(r=>r.name===name),photo=c?.avatar;return `<div class="cat-cell">${c&&!c.deletedAt?`<button type="button" class="cat-face avatar-edit" data-action="wb-cat-profile" data-id="${esc(c.id)}" aria-label="查看${esc(name)}档案" title="查看猫咪档案">${photo?`<img data-asset="${esc(photo.id)}" alt="${esc(name)}头像">`:wbCatFace(c)}</button>`:`<span class="cat-face">${wbCatFace(c)}</span>`}<div>${c&&!c.deletedAt?wbButton(esc(name),'cat-profile',`data-id="${esc(c.id)}"`):`<strong>${esc(name)}</strong>`}<small>${esc(c?.id||'公共事项')}${c?.deletedAt?' · 已归档':''}</small></div></div>`}
+function catCell(name){const c=data.cats.find(r=>r.name===name),photo=c?.avatar;return `<div class="cat-cell ${c&&DanmiaoDomain.catCategory(data,c)==='已去喵星'?'is-memorial':''}">${c&&!c.deletedAt?`<button type="button" class="cat-face avatar-edit" data-action="wb-cat-profile" data-id="${esc(c.id)}" aria-label="查看${esc(name)}档案" title="查看猫咪档案">${photo?`<img data-asset="${esc(photo.id)}" alt="${esc(name)}头像">`:wbCatFace(c)}</button>`:`<span class="cat-face">${wbCatFace(c)}</span>`}<div>${c&&!c.deletedAt?wbButton(esc(name),'cat-profile',`data-id="${esc(c.id)}"`):`<strong>${esc(name)}</strong>`}<small>${esc(c?.id||'公共事项')}${c?.deletedAt?' · 已归档':''}</small></div></div>`}
 
 function button(label,action,attrs='',cls='secondary'){return `<button type="button" class="button ${cls}" data-action="${action}" ${attrs}>${label}</button>`}
 function heading(title,subtitle,addLabel){return `<div class="page-heading"><div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div><div class="heading-actions">${button(icon('download')+'导出数据','export')}${addLabel?button(icon('plus')+addLabel,'add','','primary'):''}</div></div>`}
@@ -110,7 +110,7 @@ function edit(type,id){
  if(type==='finance')return editFinance(id);
  if(type==='monthly')return editMonthly(id);
  if(type==='inventory')return editInventory(id);
- if(type==='cats')fields=optional(field('猫咪描述','description',r.description||'','textarea'))+field('猫咪名字','name',r.name)+field('性别','sex',r.sex||'未知','text',['未知','公','母'])+field('年龄','age',r.age||'待评估')+wbCoatField(r)+(old?(r.discoveryPlace?field('发现地点（首次建档后固定）','discoveryPlace',r.discoveryPlace).replace('<input','<input readonly'):optional(field('发现地点（旧档案首次补填后固定）','discoveryPlace','')))+field('当前地点','place',r.place):field('发现地点（首次建档后固定）','discoveryPlace',''))+optional(field('健康状况（可留空，独立填写）','health',r.health||''))+optional(field('档案标记','archiveStatus',r.archiveStatus||'','text',[{value:'',label:'普通档案（领养状态自动关联）'},{value:'已去喵星',label:'已去喵星'}]))+optional(field('负责人（可留空，待认领）','owner',r.owner||''));
+ if(type==='cats')fields=optional(field('猫咪描述','description',r.description||'','textarea'))+field('猫咪名字','name',r.name)+field('性别','sex',r.sex||'未知','text',['未知','公','母'])+field('年龄','age',r.age||'待评估')+wbCoatField(r)+(old?(r.discoveryPlace?field('发现地点（首次建档后固定）','discoveryPlace',r.discoveryPlace).replace('<input','<input readonly'):optional(field('发现地点（旧档案首次补填后固定）','discoveryPlace','')))+field('当前地点','place',r.place):field('发现地点（首次建档后固定）','discoveryPlace',''))+optional(field('健康状况（可留空，独立填写）','health',r.health||''))+wbProfileStatusFields(r)+optional(field('负责人（可留空，待认领）','owner',r.owner||''));
  else{
   fields=field('关联猫咪','cat',r.cat||catOptions()[0],'text',catOptions(r.cat));
   if(type==='rescue')fields+=field('发现地点','place',r.place)+field('救助情况','issue',r.issue,'textarea');
@@ -125,14 +125,14 @@ function edit(type,id){
   values.owner=String(values.owner||'').trim();
   if(!requireValues(values,required))return toast('请完整填写必填项'),false;
   if(type==='foster'&&values.endDate&&values.endDate<values.date)return toast('预计结束日期不能早于入住日期'),false;
-  if(type==='cats')return wbSaveCatProfile(values,id);
+  if(type==='cats')return wbSubmitCatProfile(values,id);
 
   if(type==='sterilization'){values.cost=Number(values.cost);if(!Number.isFinite(values.cost)||values.cost<0)return toast('费用格式有误'),false;}
   if(type==='foster'){values.checklist=Object.fromEntries(Object.keys(checklistItems).map(k=>[k,values['check_'+k]==='on']));for(const k of Object.keys(checklistItems))delete values['check_'+k];}
   if(values.status===completedStates[type])values.completedDate=values.completedDate||today;
   if(values.completedDate&&values.completedDate>today)return toast('已完成工作的日期不能晚于今天'),false;
   writeRecord(type,values,id);return true;
- });
+ });if(type==='cats')wbProfileStatusVisibility();
 }
 function editMonthly(id,source){
  const old=find('monthly',id),r=old||source||{};
@@ -295,4 +295,4 @@ $('#dialog').addEventListener('click',e=>{if(e.target===$('#dialog')){const r=e.
 $('#help').onclick=$('#profile').onclick=()=>{wbHandleAction('wb-manage',{});};
 window.addEventListener('hashchange',()=>{query='';filter='';render()});render();
 
-function wbRestoreReason(type,r){if(type==='adoption'&&r.status==='已领养'&&active('adoption').some(a=>a.id!==r.id&&a.status==='已领养'&&(a.catId&&a.catId===r.catId||a.cat===r.cat)))return '这只猫已有进行中的领养经历，不能同时恢复两段已领养记录';if(type==='inventory'&&active('inventory').some(i=>wbStockKey(i)===wbStockKey(r)&&i.place.trim()===r.place.trim()))return '同款物资在该地点已有记录，请先核对库存再恢复';return '';}
+function wbRestoreReason(type,r){if(businessTypes.includes(type)){const reason=DanmiaoDomain.businessRuleError(data,type,{...r,deletedAt:''},r,today);if(reason)return reason;}if(type==='adoption'&&r.status==='已领养'&&active('adoption').some(a=>a.id!==r.id&&a.status==='已领养'&&(a.catId&&a.catId===r.catId||a.cat===r.cat)))return '这只猫已有进行中的领养经历，不能同时恢复两段已领养记录';if(type==='inventory'&&active('inventory').some(i=>wbStockKey(i)===wbStockKey(r)&&i.place.trim()===r.place.trim()))return '同款物资在该地点已有记录，请先核对库存再恢复';return '';}
