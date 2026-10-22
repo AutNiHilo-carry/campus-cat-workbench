@@ -1,4 +1,5 @@
 const {isDeepStrictEqual} = require('node:util');
+const domain=require('../shared-domain.js');
 const {COLLECTIONS} = require('./store.cjs');
 const roles=['admin','finance','adoption','member','viewer'];
 const business=['rescue','foster','adoption','sterilization'];
@@ -102,6 +103,7 @@ function applyChanges(state,changes,user){
     if(bill.status==='待确认'||!original)Object.assign(bill,{title:sale.title,amountCents:sale.amountCents,date:sale.date,owner:sale.owner||'',linkType:'sales',linkId:sale.id,note:sale.channel+' · '+sale.delivery});
     if(sale.cancelledAt){if(bill.status==='待确认')bill.status='已取消';else if(bill.status==='已入账')bill.refundReview=true;}
   }
+  for(const change of accepted)domain.syncBusinessChange(next,change.collection,state[change.collection].find(r=>r.id===change.id),next[change.collection].find(r=>r.id===change.id));
   return {next,accepted};
 }
 function validateState(next,old,files){

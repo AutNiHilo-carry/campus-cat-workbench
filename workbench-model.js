@@ -40,7 +40,7 @@ function wbBusinessSave(type,values,id){
   if(v.status==='寄养中'&&(!last||last.endDate||last.place!==v.place||last.caregiver!==v.caregiver)){
    const start=changed?(v.transitionDate||(v.date===old.date?today:v.date||today)):v.date||today;
    if(!wbValidDate(start)||start>today||last?.endDate&&start<last.endDate)return wbError('新一段入住日期不能早于上段结束日期或晚于今天');
-   v.date=start;v.segments.push({id:wbId('SEG'),place:v.place,caregiver:v.caregiver,startDate:start,endDate:'',note:v.note||''});
+   v.date=start;v.segments.push({id:wbId('SEG'),place:v.place,caregiver:v.caregiver,startDate:start,endDate:'',note:v.note||'',situation:v.situation||''});
   }
   if(v.status==='待安置'){v.place='';v.caregiver='';v.date=today;}
  }

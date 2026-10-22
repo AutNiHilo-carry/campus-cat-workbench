@@ -30,6 +30,7 @@ function writeRecord(type,values,id){
  if(id&&(!row||row.deletedAt))return wbError('记录已删除或不可用，请返回列表刷新');
  if(row)Object.assign(row,values);else data[type].unshift({...values,id:uid(type)});
  const after=row||data[type][0];
+ if(businessTypes.includes(type))DanmiaoDomain.syncBusinessChange(data,type,before,after);
  persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});
  return after;
 }
