@@ -1,6 +1,7 @@
 """Build the static deployment ZIP, excluding tests, screenshots and browser data."""
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import urlsplit
 from zipfile import ZipFile, ZIP_DEFLATED
 
 ROOT = Path(__file__).resolve().parent
@@ -15,7 +16,7 @@ class Assets(HTMLParser):
         attrs = dict(attrs)
         path = attrs.get("src") if tag in {"script", "img"} else attrs.get("href") if tag == "link" else None
         if path and not path.startswith(("http:", "https:", "data:", "#")):
-            self.files.add(path)
+            self.files.add(urlsplit(path).path)
 
 
 assets = Assets()

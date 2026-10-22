@@ -27,6 +27,7 @@ function listRecords(store,collection,params,user){
  if(collection==='sales')exact('channel',get('channel'));
  if(collection==='movements'&&get('group'))add(`(${field('itemId')} IS NULL OR ${field('itemId')}='' OR EXISTS(SELECT 1 FROM records i WHERE i.collection='inventory' AND i.id=${field('itemId')} AND json_extract(i.body,'$.group')=?))`,get('group'));
  const tab=get('tab');
+ if(collection==='cats'&&tab&&tab!=='全部'){assert(['已领养','已去喵星'].includes(tab),'无效档案分类');const state=store.load(),categories=new Map(state.cats.map(c=>[c.id,domain.catCategory(state,c)]));db.function('danmiao_cat_category',id=>categories.get(id)||'其他');add('danmiao_cat_category(r.id)=?',tab);}
  if(['rescue','foster'].includes(collection)&&tab&&tab!=='全部')exact('status',tab);
  if(collection==='sterilization'&&tab){exact('status',tab);if(tab==='已放归'&&month)add(`substr(${field('releaseDate')},1,7)=?`,month);}
  if(collection==='adoption'&&tab){

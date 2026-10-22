@@ -12,10 +12,13 @@ function wbBusinessSave(type,values,id){
  if(type==='adoption')v.status=({'待领养':'无领养人','沟通中':'有意向领养人','试养中':'有意向领养人','未通过':'无领养人'})[v.status]||v.status;
  if(!wbStatuses[type]?.includes(v.status)&&!(type==='adoption'&&v.status==='已退养'))return wbError('请选择有效状态');
  if(type==='rescue'){
+  if(v.outcome==='死亡')v.outcome='去喵星';
+  v.hospital=String(values.hospital??old?.hospital??'').trim();
+  if(v.status==='就医中'&&(!old||old.status!=='就医中'||Object.hasOwn(values,'hospital'))&&(!v.hospital||['待确定','待补充','未填写'].includes(v.hospital)))return wbError('请填写医院名称');
   if(!v.place?.trim()||!v.issue?.trim())return wbError('请填写发现地点和情况，猫咪档案可以后补');
   if(v.status==='就医中')v.medicalDate=old?.medicalDate||(old?.status==='就医中'&&wbValidDate(old.date)&&old.date<=today?old.date:today);
   else if(old?.medicalDate)v.medicalDate=old.medicalDate;
-  if(v.status==='已结束'&&!['死亡','放归','转寄养'].includes(v.outcome))return wbError('结束救助时请选择后续结果');
+  if(v.status==='已结束'&&!['去喵星','放归','转寄养'].includes(v.outcome))return wbError('结束救助时请选择后续结果');
   if(v.status==='已结束')v.completedDate=v.completedDate||today;
  }else if(!v.cat?.trim())return wbError('请填写猫咪名称或临时称呼');
  if(type==='sterilization'){

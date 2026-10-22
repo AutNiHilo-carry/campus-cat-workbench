@@ -232,7 +232,7 @@ run("wbStoryDetail(linkedStory.id,linkedCatId)");assert.match(el('#fields').inne
 console.log('PASS: separate stock creation, optional location photos, cat descriptions, distinct-cat monthly totals and 137-record pagination coverage.');
 
 // Hospitalization counts immediately, without introducing a duplicate rescue state.
-assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'校门',issue:'需要检查',status:'就医中'}),true);
+assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'校门',issue:'需要检查',hospital:'演示医院',status:'就医中'}),true);
 run("const medicalId=data.rescue[0].id;wbSync(data)");
 eq("data.monthly.filter(w=>w.sourceType==='rescue'&&w.sourceId===medicalId).length",1);
 eq("data.monthly.find(w=>w.sourceType==='rescue'&&w.sourceId===medicalId).date",day);
@@ -302,3 +302,25 @@ assert.equal(call('wbBusinessSave','rescue',{place:'校内',issue:'测试',statu
 assert.equal(call('wbBusinessSave','rescue',{place:'校内',issue:'测试',status:'已结束',outcome:'放归',date:day,completedDate:'2026-01-01'}),false);
 run("const duplicateRestore={...find('adoption',draftOld),deletedAt:'test',status:'已领养'};find('adoption',draftKept).status='已领养'");assert.match(run("wbRestoreReason('adoption',duplicateRestore)"),/不能同时恢复/);
 console.log('PASS: identity rename/alias propagation, adoption history isolation, safe return with existing drafts, stale-dialog guards and restore conflicts.');
+
+// Rescue quick editing keeps other fields, validates hospitals, and escapes list previews.
+assert.equal(call('wbBusinessSave','rescue',{cat:'界面流程猫',place:'测试地点',issue:'初始情况',owner:'原负责人',status:'待救助'}),true);
+run("const noteRecord=data.rescue[0].id;const noteCat=data.rescue[0].catId");
+assert.equal(call('wbSaveRescueNotes',run('noteRecord'),{issue:'  ',nextStep:'不应保存'}),false);
+assert.equal(call('wbSaveRescueNotes',run('noteRecord'),{issue:'第一行\n<b>第二行</b>',nextStep:'联系医院\n安排接送'}),true);
+eq("find('rescue',noteRecord).owner",'原负责人');eq("find('rescue',noteRecord).status",'待救助');
+run("page='rescue';const notesHTML=wbBusinessTable([find('rescue',noteRecord)])");assert.match(run('notesHTML'),/wb-rescue-notes/);assert.match(run('notesHTML'),/&lt;b&gt;/);
+assert.equal(call('wbBusinessSave','rescue',{...run("find('rescue',noteRecord)"),status:'就医中',hospital:''},run('noteRecord')),false);
+assert.equal(call('wbBusinessSave','rescue',{...run("find('rescue',noteRecord)"),status:'就医中',hospital:'测试医院'},run('noteRecord')),true);
+assert.match(run("page='rescue';wbBusinessTable([find('rescue',noteRecord)])"),/测试医院/);
+call('wbHandleAction','wb-rescue-notes',{id:run('noteRecord')});assert.match(el('#fields').innerHTML,/name="nextStep"/);
+assert.equal(call('submitHandler',{issue:'完整情况',nextStep:''}),true);eq("find('rescue',noteRecord).nextStep",'');
+// Classification follows current adoption, old outcomes migrate, and gone takes priority.
+run("const categoryFixture=clone(data);categoryFixture.rescue=[];categoryFixture.adoption=[{id:'CATEGORY-A',catId:noteCat,cat:'界面流程猫',status:'已领养'}]");
+eq("DanmiaoDomain.catCategory(categoryFixture,find('cats',noteCat))",'已领养');run("categoryFixture.adoption[0].status='已退养'");eq("DanmiaoDomain.catCategory(categoryFixture,find('cats',noteCat))",'其他');
+run("categoryFixture.adoption[0].status='已领养';categoryFixture.rescue=[{id:'CATEGORY-R',catId:noteCat,cat:'界面流程猫',status:'已结束',outcome:'死亡'}];wbMigrate(categoryFixture)");eq("categoryFixture.rescue[0].outcome",'去喵星');eq("DanmiaoDomain.catCategory(categoryFixture,find('cats',noteCat))",'已去喵星');
+// Long histories fold into a bounded list and run from early to late.
+run("for(let i=5;i>=0;i--)data.foster.push({id:'EXPERIENCE-'+i,catId:noteCat,cat:'界面流程猫',status:'寄养中',place:'地点'+i,date:'2026-01-0'+(i+1),segments:[]});wbCatProfile(find('cats',noteCat))");
+assert.match(el('#fields').innerHTML,/experience-list is-compact/);assert.match(el('#fields').innerHTML,/<details class="experience-card"><summary/);
+assert.ok(el('#fields').innerHTML.indexOf('EXPERIENCE-0')<el('#fields').innerHTML.indexOf('EXPERIENCE-5'));
+console.log('PASS: rescue note editing, required hospitals, compatible cat classification, chronological folded histories and compact long lists.');

@@ -22,10 +22,16 @@ function wbFollowup(row,asOf=day()){
  if(wbValidDate(row.nextFollowupDate))next=row.nextFollowupDate;
  return {due:next<=asOf,next,label:next<=asOf?'待回访':row.followupState==='待回访'||row.followupState==='未到期'?'待回访':row.lastFollowup?'已完成':'待回访'};
 }
+function catCategory(store,cat){
+ const gone=v=>['死亡','已死亡','去喵星','已去喵星'].includes(v),related=r=>r.catId?r.catId===cat.id:r.cat===cat.name||(cat.aliases||[]).includes(r.cat);
+ if([cat.archiveStatus,cat.status,cat.health].some(gone)||wbActive(store,'rescue').some(r=>related(r)&&r.status==='已结束'&&gone(r.outcome)))return '已去喵星';
+ return wbActive(store,'adoption').some(r=>related(r)&&r.status==='已领养')?'已领养':'其他';
+}
 function wbMigrate(store,asOf=day()){
  store.sales??=[];store.dismissed??=[];store.stories??=[];for(const item of store.inventory){delete item.min;item.photos??=[];}store.dismissed=store.dismissed.filter(key=>!key.startsWith('low:'));
  for(const t of businessTypes)for(const r of store[t]){
   r.status=({rescue:{'待响应':'待救助','待相应':'待救助','已接手':'待救助','救助中':'待救助','已结案':'已结束'},foster:{'待入住':'待安置','待交接':'待安置'},adoption:{'待审核':'无领养人','待领养':'无领养人','沟通中':'有意向领养人','试养中':'有意向领养人','未通过':'无领养人'},sterilization:{'待预约':'待绝育','已预约':'待绝育','术后照护':'住院中','已完成':'已放归'}}[t][r.status])||r.status;
+  if(t==='rescue'&&r.outcome==='死亡')r.outcome='去喵星';
   r.nextStep??='';r.photos??=[];r.owner??='';const linked=store.cats.find(c=>!c.deletedAt&&(c.name===r.cat||(c.aliases||[]).includes(r.cat)));if(linked){if(!r.catId)r.catId=linked.id;r.cat=linked.name;}
   if(t==='rescue'&&r.status==='就医中'&&!r.medicalDate)r.medicalDate=wbValidDate(r.date)&&r.date<=asOf?r.date:asOf;
   if(t==='sterilization'){
@@ -39,7 +45,7 @@ function wbMigrate(store,asOf=day()){
    r.postStatus=['本月领养帖','已上领养帖','本月领养贴','已上领养贴'].includes(r.postStatus)?'已上领养贴':'未上领养贴';r.agreements??=[];r.earlyInterval??=7;r.regularInterval??=30;r.adoptDate??=r.status==='已领养'?(r.date||asOf):'';r.lastFollowup??='';r.followups??=[];for(const entry of r.followups){entry.id??=wbId('FOLLOW');entry.photos??=[];}
   }
  }
- for(const c of store.cats)c.photos??=[];
+ for(const c of store.cats){c.photos??=[];for(const k of ['health','status','archiveStatus'])if(['死亡','已死亡'].includes(c[k]))c[k]='已去喵星';}
  for(const l of store.loans||[])l.sourcePlace??=store.inventory.find(i=>i.id===l.itemId)?.place||'';
  for(const b of store.finance){if(b.flow==='个人垫付'&&b.status==='待报销')b.status='待审核';b.refundReview??=false;}
  store.schemaVersion=4;return store;
@@ -103,5 +109,5 @@ function migrateData(input,{defaults={},extraInventory=[],asOf=day()}={}){
  return input;
 }
 
-return {day,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
+return {day,catCategory,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
 });

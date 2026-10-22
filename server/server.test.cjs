@@ -36,6 +36,16 @@ test('local backend: authentication, transactions, permissions, files and restar
    const state=await get(users.member);assert.equal(state.state.finance.length,0);assert.equal(state.state.audit.length,0);
    const c=state.state.cats[0];assert.equal((await patch(users.viewer,[change('cats',c,{...c,description:'不能修改'})])).status,403);
   });
+  await t.test('rescue medical transitions require hospitals and preserve atomicity',async()=>{
+   const r={id:'RESCUE-HOSPITAL-TEST',cat:'',place:'测试地点',issue:'需要就医',status:'待救助'};
+   assert.equal((await patch(admin,[change('rescue',null,r)])).status,200);
+   const before=(await get(admin)).state.rescue.find(x=>x.id===r.id);
+   assert.equal((await patch(admin,[change('rescue',before,{...before,status:'就医中'})])).status,400);
+   assert.equal((await get(admin)).state.rescue.find(x=>x.id===r.id).status,'待救助');
+   assert.equal((await patch(admin,[change('rescue',before,{...before,status:'就医中',hospital:'测试医院'})])).status,200);
+   const current=(await get(admin)).state.rescue.find(x=>x.id===r.id);
+   assert.equal((await patch(admin,[change('rescue',current,{...current,hospital:'   '})])).status,400);
+  });
   await t.test('atomic changes, same-record conflicts, independent edits, server audit',async()=>{
    const a=await get(admin),first=a.state.cats[0],second=a.state.cats[1];
    assert.equal((await patch(admin,[change('cats',first,{...first,description:'第一次保存'})])).status,200);

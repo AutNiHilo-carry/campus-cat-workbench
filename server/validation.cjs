@@ -109,7 +109,7 @@ function validateState(next,old,files){
     assert(Array.isArray(next[c])&&next[c].length<=20000,'数据量超过本地版限制');
     const ids=new Set();for(const row of next[c]){shape(row);assert(typeof row.id==='string'&&!ids.has(row.id),'记录编号重复');ids.add(row.id);assert(JSON.stringify(row).length<=300000,'单条记录过大');}
   }
-  const names=new Map();for(const cat of active('cats')){assert(typeof cat.name==='string'&&cat.name.trim().length>0&&cat.name.length<=80,'猫咪名字无效');for(const name of [cat.name,...cat.aliases||[]]){const key=String(name).normalize('NFKC').toLowerCase().replace(/\s+/g,'');assert(key&&(!names.has(key)||names.get(key)===cat.id),'猫咪名字或曾用名重复');names.set(key,cat.id);}}
+  const names=new Map();for(const cat of active('cats')){assert(cat.archiveStatus===undefined||['','已去喵星'].includes(cat.archiveStatus),'无效档案标记');assert(typeof cat.name==='string'&&cat.name.trim().length>0&&cat.name.length<=80,'猫咪名字无效');for(const name of [cat.name,...cat.aliases||[]]){const key=String(name).normalize('NFKC').toLowerCase().replace(/\s+/g,'');assert(key&&(!names.has(key)||names.get(key)===cat.id),'猫咪名字或曾用名重复');names.set(key,cat.id);}}
   for(const c of business)for(const r of active(c)){
     const prior=old[c].find(row=>row.id===r.id);
     assert(states[c].includes(r.status),'无效业务状态');
@@ -118,11 +118,12 @@ function validateState(next,old,files){
     for(const key of ['surgeryDate','releaseDate','completedDate','medicalDate','adoptDate','lastFollowup','postDate'])if(r[key])assert(date(r[key])&&r[key]<=future,'实际日期格式有误或晚于今天');
     if(c==='sterilization'&&r.status==='住院中')assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital)&&date(r.surgeryDate),'住院中必须填写医院和手术日期');
     if(c==='sterilization'&&r.status==='已放归')assert(date(r.releaseDate)&&r.releasePlace?.trim()&&(!r.surgeryDate||r.releaseDate>=r.surgeryDate),'放归信息不完整');
+    if(c==='rescue'&&r.status==='就医中'&&(prior?.status!=='就医中'||prior?.hospital!==r.hospital))assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'就医中必须填写医院名称');
     if(c==='rescue')assert(r.place?.trim()&&r.issue?.trim(),'救助需填写地点和发现情况');
     if(c==='foster'&&r.status==='寄养中')assert(r.place?.trim()&&r.caregiver?.trim(),'寄养中需填写地点和照护人');
     if(c==='foster'&&r.status==='寄养中')assert(date(r.date)&&r.date<=future,'入住日期不能晚于今天');
     if(r.status==='已结束'&&prior?.status!=='已结束'){
-      if(c==='rescue')assert(['死亡','放归','转寄养'].includes(r.outcome),'结束救助请选择后续结果');
+      if(c==='rescue')assert(['去喵星','死亡','放归','转寄养'].includes(r.outcome),'结束救助请选择后续结果');
       if(c==='foster')assert(['已领养','已放归'].includes(r.outcome),'结束寄养请选择去向');
       assert(date(r.completedDate)&&(!date(r.medicalDate||r.date)||r.completedDate>=(r.medicalDate||r.date)),'结束日期不能早于开始或就医日期');
     }
