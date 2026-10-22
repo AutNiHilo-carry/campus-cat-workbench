@@ -82,3 +82,5 @@ summary.experience-card-head{cursor:pointer;list-style:none}summary.experience-c
 @media(max-width:640px){.profile-overview{grid-template-columns:1fr;gap:12px;padding:14px}.profile-overview>div{grid-template-columns:80px minmax(0,1fr)}}
 
 .profile-fact-edit{display:block;text-align:left;border:1px solid transparent;border-radius:6px;padding:2px 6px;margin:-3px -7px;background:transparent;color:inherit;font:inherit;line-height:inherit;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}.profile-fact-edit:hover,.profile-fact-edit:focus-visible{background:#eaf3ef;border-color:#b8d6c8;outline:none}
+
+.sterilization-cat-facts{font-size:14px;line-height:1.8;color:#5b786e;margin-top:9px;white-space:normal}

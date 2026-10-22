@@ -69,7 +69,16 @@ function wbBusinessRows(){return active(page).filter(r=>{
  });}
 function wbBusinessTable(rows){
  if(page==='rescue')return wbTable(['猫咪','发现地点','情况及下一步','医院','状态 / 结果','负责人','操作'],rows.map(r=>[catCell(r.cat||'未建档'),esc(r.place||'—'),`<button type="button" class="copy-preview rescue-notes-preview" data-action="wb-rescue-notes" data-id="${r.id}" aria-label="查看和修改情况及下一步"><span>${esc((r.issue||'点击填写发现情况')+(r.nextStep?'\n下一步：'+r.nextStep:''))}</span><small>点击查看完整内容</small></button>`,esc(r.hospital||(r.status==='就医中'?'医院待补充':'—')),wbStateButton(page,r)+(r.outcome?`<div class="date">${esc(r.outcome)}</div>`:''),person(r.owner),wbRowActions(page,r)]));
- if(page==='sterilization'){const pending=wbBusinessTab.sterilization==='待绝育';return wbTable(['猫咪',pending?'出没地区':'抓捕人',pending?'手术安排':'医院 / 手术日期','费用','状态','操作'],rows.map(r=>[catCell(r.cat),pending?wbBusinessFactCell('sterilization',r,'area',esc(r.place||'点击填写出没地区'),'修改出没地区'):wbBusinessFactCell('sterilization',r,'capturer',person(r.capturer),'修改抓捕人'),pending?wbButton('待安排','state',`data-type="sterilization" data-id="${esc(r.id)}"`):wbBusinessFactCell('sterilization',r,'medical',esc(r.hospital||'医院待补充')+`<span class="date">${esc(r.surgeryDate||'手术日期待补充')}</span>`,'修改医院和手术日期'),wbBusinessFactCell('sterilization',r,'cost',money(Math.round(r.cost*100)),'修改费用'),wbStateButton(page,r),wbRowActions(page,r)]));}
+ if(page==='sterilization'){
+  const pending=wbBusinessTab.sterilization==='待绝育';
+  const heads=['猫咪',pending?'出没地区':'抓捕人',...(!pending?['医院 / 手术日期','费用']:[]),'状态','操作'];
+  return wbTable(heads,rows.map(r=>{const c=find('cats',r.catId)||wbFindCat(r.cat);return [
+   catCell(r.cat)+`<div class="sterilization-cat-facts">${esc(c?.sex||'性别待补充')} · ${esc(c?.age||'年龄待补充')}</div>`,
+   pending?wbBusinessFactCell('sterilization',r,'area',esc(r.place||'点击填写出没地区'),'修改出没地区'):wbBusinessFactCell('sterilization',r,'capturer',person(r.capturer),'修改抓捕人'),
+   ...(!pending?[wbBusinessFactCell('sterilization',r,'medical',esc(r.hospital||'医院待补充')+`<span class="date">${esc(r.surgeryDate||'手术日期待补充')}</span>`,'修改医院和手术日期'),wbBusinessFactCell('sterilization',r,'cost',money(Math.round(r.cost*100)),'修改费用')]:[]),
+   wbStateButton(page,r),wbRowActions(page,r)
+  ];}));
+ }
  if(page==='foster')return wbTable(['猫咪','当前地点 / 照护人','情况','状态 / 去向','寄养经历','操作'],rows.map(r=>[catCell(r.cat||'未建档'),wbBusinessFactCell('foster',r,'placement',esc(r.status==='待安置'?'待确认':r.place||'待确认')+`<span class="date">${esc(r.caregiver||'照护人待补充')}</span>`,'修改寄养地点和照护人'),wbBusinessFactCell('foster',r,'situation',esc(r.situation||'点击填写寄养情况'),'查看和修改寄养情况'),wbStateButton(page,r)+`<div class="date">${esc(r.outcome||'')}</div>`,`${r.segments.length} 段记录`,wbRowActions(page,r)]));
  return wbAdoptionTable(rows);
 }
