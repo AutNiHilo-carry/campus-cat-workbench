@@ -26,9 +26,9 @@ test('foster outcome corrections cancel only empty generated adoptions and prese
  s=commit(s,'adoption',{id:auto.id,applicant:'已确认领养人'});assert.throws(()=>commit(s,'adoption',{id:auto.id,applicant:'不应覆盖的新人'}),/更换领养人/);assert.throws(()=>commit(s,'foster',{id:'F-RULE',outcome:'已放归',releasePlace:'放归点',releaseDate:date}),/关联领养已有/);assert.equal(s.foster[0].outcome,'已领养');
 });
 test('memorial profiles require a date, block new workflows, and permit historical entries',()=>{
- let s=fresh();assert.throws(()=>commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星'}),/去喵星日期/);
- s=commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星',memorialDate:date});
- for(const [collection,record]of [['rescue',{status:'待救助',place:'地点',issue:'观察'}],['sterilization',{status:'待绝育',place:'地点',cost:0}],['adoption',{status:'已领养',adoptDate:date}],['foster',foster()]])assert.throws(()=>commit(s,collection,{...cat,...record,id:'NEW-'+collection}),/已去喵星/);
+ let s=fresh();assert.throws(()=>commit(s,'cats',{id:'C-RULE',archiveStatus:'去了喵星'}),/去喵星日期/);
+ s=commit(s,'cats',{id:'C-RULE',archiveStatus:'去了喵星',memorialDate:date});
+ for(const [collection,record]of [['rescue',{status:'待救助',place:'地点',issue:'观察'}],['sterilization',{status:'待绝育',place:'地点',cost:0}],['adoption',{status:'已领养',adoptDate:date}],['foster',foster()]])assert.throws(()=>commit(s,collection,{...cat,...record,id:'NEW-'+collection}),/去了喵星/);
  s=commit(s,'rescue',{...cat,id:'HISTORY-RULE',status:'已结束',outcome:'放归',place:'旧目击点',issue:'历史补录',completedDate:date,releasePlace:'历史放归点',releaseDate:date});assert.equal(s.cats[0].place,'初始地点');
 });
 test('ended dates and foster segment history are checked on corrections as well as creation',()=>{
@@ -64,7 +64,7 @@ test('hospital archive filter follows medical records and excludes memorial cats
  s=commit(s,'rescue',{...cat,id:'R-HOSP-TAB',status:'就医中',hospital:'医院',issue:'观察',date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),true);
  s=commit(s,'rescue',{id:'R-HOSP-TAB',status:'已结束',outcome:'放归',releasePlace:'校园',completedDate:date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
  s=commit(s,'sterilization',{...cat,id:'S-HOSP-TAB',status:'住院中',hospital:'医院',date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),true);
- s=commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星',memorialDate:date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
+ s=commit(s,'cats',{id:'C-RULE',archiveStatus:'去了喵星',memorialDate:date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
 });
 
 test('loan and return movements must match one immutable loan identity, quantity and source',()=>{

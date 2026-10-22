@@ -33,8 +33,8 @@ test('SQL lists: stable pages, literal search, filters, grouped stock, follow-up
   assert.equal(list('adoption',{q:'private-contract'},admin).total,1);
   for(const role of ['member','finance','viewer'])assert.equal(list('adoption',{q:'private-contract'},{id:role,role}).total,0,'search must not reveal hidden agreement metadata');
   assert.equal(list('adoption',{q:'private-contract'},{id:'adoption',role:'adoption'}).total,1);
-  state.cats[0].archiveStatus='已去喵星';state.cats[2].health='死亡';store.transaction(()=>store.save(state,2));
-  assert.equal(list('cats',{tab:'已去喵星'}).total,2);assert.equal(list('cats',{tab:'已去喵星',q:'猫0'}).total,1);
+  state.cats[0].archiveStatus='去了喵星';state.cats[2].health='死亡';store.transaction(()=>store.save(state,2));
+  assert.equal(list('cats',{tab:'去了喵星'}).total,2);assert.equal(list('cats',{tab:'去了喵星',q:'猫0'}).total,1);
   assert.deepEqual(list('cats',{tab:'已领养'}).records.map(c=>c.id),['CAT-3']);
   assert.equal(list('cats',{tab:'全部'}).total,137);
   state.rescue=[{id:'R-HOSP',cat:'猫10',catId:'CAT-10',status:'就医中'},{id:'R-GONE',cat:'猫0',catId:'CAT-0',status:'就医中'}];state.sterilization=[{id:'S-HOSP',cat:'猫20',catId:'CAT-20',status:'住院中'}];store.transaction(()=>store.save(state,3));assert.deepEqual(list('cats',{tab:'住院中'}).records.map(c=>c.id),['CAT-10','CAT-20']);

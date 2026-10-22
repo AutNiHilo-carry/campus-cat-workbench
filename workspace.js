@@ -26,17 +26,21 @@ function persist(message,audit){
  render();toast(persistence?(message||'已保存'):'浏览器存储空间不足，修改仅保留在当前页面；请立即导出数据');
 }
 function writeRecord(type,values,id){
- const row=find(type,id),before=clone(row);
- if(id&&(!row||row.deletedAt))return wbError('记录已删除或不可用，请返回列表刷新');
- if(row)Object.assign(row,values);else data[type].unshift({...values,id:uid(type)});
- const after=row||data[type][0];
- if(businessTypes.includes(type))DanmiaoDomain.syncBusinessChange(data,type,before,after);
- persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});
- return after;
+ const row=find(type,id),before=clone(row);if(id&&(!row||row.deletedAt))return wbError('记录已删除或不可用，请返回列表刷新');
+ const candidate={...clone(row||{}),...values,id:id||uid(type)};
+ if(type==='finance'){const error=DanmiaoDomain.prepareFinanceChange(before,candidate,today);if(error)return wbError(error);}
+ const scratch=clone(data),index=scratch[type].findIndex(r=>r.id===candidate.id),staged=clone(candidate);if(index<0)scratch[type].unshift(staged);else scratch[type][index]=staged;
+ if(type==='cats')DanmiaoDomain.noteCatChange(scratch,before,staged);
+ if(businessTypes.includes(type)){const error=DanmiaoDomain.businessRuleError(scratch,type,staged,before,today);if(error)return wbError(error);DanmiaoDomain.syncBusinessChange(scratch,type,before,staged);}
+ DanmiaoDomain.sync(scratch,today);let error=DanmiaoDomain.recordChangeError(scratch,type,scratch[type].find(r=>r.id===candidate.id),before,today);if(!error)for(const cat of scratch.cats.filter(c=>!c.deletedAt)){error=DanmiaoDomain.memorialDateError(scratch,cat,today);const priorCat=find('cats',cat.id);if(error&&priorCat&&DanmiaoDomain.memorialDateSignature(scratch,cat)===DanmiaoDomain.memorialDateSignature(data,priorCat))error='';if(error)break;}if(error)return wbError(error);
+ if(row)Object.assign(row,candidate);else data[type].unshift(candidate);const after=row||data[type][0];
+ if(type==='cats')DanmiaoDomain.noteCatChange(data,before,after);if(businessTypes.includes(type))DanmiaoDomain.syncBusinessChange(data,type,before,after);
+ persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});return after;
 }
+
 function badge(text){return `<span class="badge ${/待|预约/.test(text)?'orange':/就医|试养|垫付/.test(text)?'purple':/逾期|不足/.test(text)?'red':''}">${esc(text)}</span>`}
 function person(name){return `<span class="person"><span class="mini-avatar">${name?esc(name[0]):'○'}</span>${esc(name||'待认领')}</span>`}
-function catCell(name){const c=data.cats.find(r=>r.name===name),photo=c?.avatar;return `<div class="cat-cell ${c&&DanmiaoDomain.catCategory(data,c)==='已去喵星'?'is-memorial':''}">${c&&!c.deletedAt?`<button type="button" class="cat-face avatar-edit" data-action="wb-cat-profile" data-id="${esc(c.id)}" aria-label="查看${esc(name)}档案" title="查看猫咪档案">${photo?`<img data-asset="${esc(photo.id)}" alt="${esc(name)}头像">`:wbCatFace(c)}</button>`:`<span class="cat-face">${wbCatFace(c)}</span>`}<div>${c&&!c.deletedAt?wbButton(esc(name),'cat-profile',`data-id="${esc(c.id)}"`):`<strong>${esc(name)}</strong>`}<small>${esc(c?.id||'公共事项')}${c?.deletedAt?' · 已归档':''}</small></div></div>`}
+function catCell(name){const c=data.cats.find(r=>r.name===name),photo=c?.avatar;return `<div class="cat-cell ${c&&DanmiaoDomain.catCategory(data,c)==='去了喵星'?'is-memorial':''}">${c&&!c.deletedAt?`<button type="button" class="cat-face avatar-edit" data-action="wb-cat-profile" data-id="${esc(c.id)}" aria-label="查看${esc(name)}档案" title="查看猫咪档案">${photo?`<img data-asset="${esc(photo.id)}" alt="${esc(name)}头像">`:wbCatFace(c)}</button>`:`<span class="cat-face">${wbCatFace(c)}</span>`}<div>${c&&!c.deletedAt?wbButton(esc(name),'cat-profile',`data-id="${esc(c.id)}"`):`<strong>${esc(name)}</strong>`}<small>${esc(c?.id||'公共事项')}${c?.deletedAt?' · 已归档':''}</small></div></div>`}
 
 function button(label,action,attrs='',cls='secondary'){return `<button type="button" class="button ${cls}" data-action="${action}" ${attrs}>${label}</button>`}
 function heading(title,subtitle,addLabel){return `<div class="page-heading"><div><h1>${title}</h1><p class="subtitle">${subtitle}</p></div><div class="heading-actions">${button(icon('download')+'导出数据','export')}${addLabel?button(icon('plus')+addLabel,'add','','primary'):''}</div></div>`}
@@ -171,7 +175,7 @@ function editFinance(id){
   writeRecord('finance',{...values,amountCents:cents,linkType,linkId,paidDate},id);return true;
  });
 }
-function reimburse(id){const r=find('finance',id);if(!r||r.status!=='审核通过')return toast('请先完成报销审核');showModal('登记已报销','<p class="details">'+esc(r.title)+' · '+money(r.amountCents)+'。这里只登记已完成的报销，不执行付款。</p>'+field('报销日期','date',today,'date'),v=>wbReimburse(id,v.date),'登记已报销')}
+function reimburse(id){const r=find('finance',id);if(!r||r.status!=='审核通过')return toast('请先完成报销审核');showModal('登记已报销','<p class="details">'+esc(r.title)+' · '+money(r.amountCents)+'。这里只登记已完成的报销，不执行付款。</p>'+(!r.reviewDate?field('实际审核日期（旧记录补填）','reviewDate',r.date||today,'date'):'<p class="form-hint">实际审核日期：'+esc(r.reviewDate)+'</p>')+field('实际付款日期','date',today,'date'),v=>wbReimburse(id,v.date,v.reviewDate),'登记已报销')}
 function editInventory(id,prefill){
  const old=find('inventory',id),r=old||prefill||{},group=r.group||inventoryGroup,creative=group==='文创';
  const fields=`<input type="hidden" name="group" value="${esc(group)}">`+field(creative?'文创名称':'物资名称','name',r.name)+field(creative?'文创分类':'物资分类','category',r.category||(creative?'贴纸':'食品'))+(creative?optional(field('款式（可留空）','variant',r.variant||''))+`<input type="hidden" name="kind" value="消耗品">`:field('使用方式','kind',r.kind||'消耗品','text',['消耗品','可借用器材']))+field('计量单位','unit',r.unit||(creative?'个':'袋'))+(old?`<div class="notice">在库 ${r.qty} ${esc(r.unit)}${creative?'，预留 '+(r.reserved||0):''}。数量请通过库存操作修改。</div>`:field('初始在库数量','qty',0,'number'))+field('存放位置','place',prefill?'':r.place||'活动室')+(creative?optional(field('参考单价（元，可留空）','unitPrice',r.unitPriceCents?(r.unitPriceCents/100).toFixed(2):'','number').replace('step="1"','step="0.01"')):'');
@@ -233,12 +237,13 @@ function applyStockOperation(id,type,values){
 function returnLoan(id){const loan=find('loans',id),item=find('inventory',loan?.itemId);if(!loan||loan.returnedDate||!item||item.deletedAt)return toast('此借用记录无法重复归还');const places=[...new Set(active('inventory').map(i=>i.place).filter(Boolean))];showModal('登记器材归还',`<p class="loan-return-number">借还单号：${wbRecordNumber(loan.id)}</p><div class="notice">${esc(loan.borrower)}归还 ${esc(loan.itemName)} ${loan.quantity} ${esc(item.unit)}。借出来源：${esc(loan.sourcePlace||item.place)}。库存将补到本次选择的归还地点。</div>${field('归还位置','returnLocation',item.place,'text',[...places.map(p=>({value:p,label:p})),{value:'__new__',label:'＋ 新增地点'}])}<div id="return-new-place">${field('新地点名称','newReturnPlace','')}</div>${field('实际归还日期','date',today,'date')}${optional(field('接收人（可留空）','owner',''))}`,v=>wbReturnLoan(id,v),'确认登记归还');wbReturnLocationVisibility();}
 
 function checklist(id){const r=find('foster',id);showModal(r.cat+' · 寄养交接',checkFields(r.checklist)+field('照护及交接说明','note',r.note,'textarea'),values=>{const checklist=Object.fromEntries(Object.keys(checklistItems).map(k=>[k,values['check_'+k]==='on']));writeRecord('foster',{checklist,note:values.note},id);return true;})}
-function deletionReason(type,r){if(type==='finance'&&(r.movementId||r.saleId))return '销售收入由物资流水自动关联，不能单独删除。';if(type==='inventory'&&(r.reserved>0||wbReservations(data,r.id).total>0||active('loans').some(l=>l.itemId===r.id&&!l.returnedDate)))return '请先取消预留并收回未归还器材，再移入回收站。';return ''}
+function deletionReason(type,r){const policy=DanmiaoDomain.deletionError(data,type,r);if(policy)return policy;if(type==='finance'&&(r.movementId||r.saleId))return '销售收入由物资流水自动关联，不能单独删除。';if(type==='inventory'&&(r.reserved>0||wbReservations(data,r.id).total>0||active('loans').some(l=>l.itemId===r.id&&!l.returnedDate)))return '请先取消预留并收回未归还器材，再移入回收站。';return ''}
 function softDelete(type,id){
  const row=find(type,id);if(!row||row.deletedAt)return;
  const reason=deletionReason(type,row);if(reason)return toast(reason);
- showModal('移入回收站',`<div class="details">将“${esc(row.title||row.cat||row.name)}”移入回收站？可在“记录与回收站”恢复。${type==='finance'?'移出有效账目后，财务汇总也会重新计算。':''}自动月度统计随有效来源重新计算，历史流水保留。</div>`,()=>{
-  const before=clone(row);row.deletedAt=new Date().toISOString();
+ const proposed=clone(data);proposed[type].find(r=>r.id===id).deletedAt=new Date().toISOString();DanmiaoDomain.sync(proposed,today);const places=proposed.cats.filter(c=>!c.deletedAt&&find('cats',c.id)?.place!==c.place);
+ showModal('移入回收站',`<div class="details">将“${esc(row.title||row.cat||row.name)}”移入回收站？历史操作保留，可在回收站恢复。</div>${places.map((cat,i)=>optional(field('撤销后当前地点：'+cat.name+'（请核对，可留空）','placeAfter_'+i,cat.place||''))).join('')}`,v=>{
+  const before=clone(row);row.deletedAt=new Date().toISOString();DanmiaoDomain.sync(data,today);for(const [i,cat]of places.entries()){const current=find('cats',cat.id),chosen=v['placeAfter_'+i]??cat.place;if(current.place!==chosen)DanmiaoDomain.pushLocation(data,current,{kind:'manual',place:chosen});}
   persist('已移入回收站，可随时恢复',{action:'移入回收站',type,recordId:id,before,after:clone(row)});return true;
  },'确认移入回收站');
 }
@@ -295,4 +300,4 @@ $('#dialog').addEventListener('click',e=>{if(e.target===$('#dialog')){const r=e.
 $('#help').onclick=$('#profile').onclick=()=>{wbHandleAction('wb-manage',{});};
 window.addEventListener('hashchange',()=>{query='';filter='';render()});render();
 
-function wbRestoreReason(type,r){if(businessTypes.includes(type)){const reason=DanmiaoDomain.businessRuleError(data,type,{...r,deletedAt:''},r,today);if(reason)return reason;}if(type==='adoption'&&r.status==='已领养'&&active('adoption').some(a=>a.id!==r.id&&a.status==='已领养'&&(a.catId&&a.catId===r.catId||a.cat===r.cat)))return '这只猫已有进行中的领养经历，不能同时恢复两段已领养记录';if(type==='inventory'&&active('inventory').some(i=>wbStockKey(i)===wbStockKey(r)&&i.place.trim()===r.place.trim()))return '同款物资在该地点已有记录，请先核对库存再恢复';return '';}
+function wbRestoreReason(type,r){const scratch=clone(data),candidate=scratch[type].find(x=>x.id===r.id);candidate.deletedAt='';const policy=DanmiaoDomain.recordChangeError(scratch,type,candidate,r,today);if(policy)return policy;if(businessTypes.includes(type)){const reason=DanmiaoDomain.businessRuleError(data,type,{...r,deletedAt:''},r,today);if(reason)return reason;}if(type==='adoption'&&r.status==='已领养'&&active('adoption').some(a=>a.id!==r.id&&a.status==='已领养'&&(a.catId&&a.catId===r.catId||a.cat===r.cat)))return '这只猫已有进行中的领养经历，不能同时恢复两段已领养记录';if(type==='inventory'&&active('inventory').some(i=>wbStockKey(i)===wbStockKey(r)&&i.place.trim()===r.place.trim()))return '同款物资在该地点已有记录，请先核对库存再恢复';return '';}
