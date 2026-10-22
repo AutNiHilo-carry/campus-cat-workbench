@@ -1,4 +1,6 @@
-# 上线准备
+# 部署配置与隔离测试参考
+
+> **当前不推荐部署上线，也不推荐引入真实业务数据。** 本文保留部署配置供开发者进行隔离测试和后续完善，不代表当前版本已达到生产使用要求。请使用虚构或充分脱敏资料测试。
 
 当前先将源代码上传 GitHub；上传仓库不会自动发布网站。完整后端需运行 Node.js 服务，GitHub Pages 只能运行静态演示版。
 
@@ -78,4 +80,4 @@ node server/ops.cjs restore --source /受控位置/backup-时间 --target /新�
 
 ## 测试 Demo 的上线边界
 
-本项目仍是轻量级测试 Demo，功能及工程化尚不完善，不承诺生产稳定性或数据零丢失。首次试用请使用虚构或脱敏资料；部署到真实环境前应自行验证 HTTPS、权限、恢复、负载与数据保护安排。账号恢复见 [ACCOUNT-RECOVERY.md](ACCOUNT-RECOVERY.md)，自动化隔离恢复演练及实际环境验证步骤见 [RECOVERY-DRILL.md](RECOVERY-DRILL.md)。
+本项目仍是轻量级测试 Demo，功能及工程化尚不完善，不承诺生产稳定性或数据零丢失。当前不推荐部署上线或引入真实业务数据。请仅使用虚构或充分脱敏资料进行隔离测试；HTTPS、权限、恢复、负载与数据保护仍需进一步验证。账号恢复见 [ACCOUNT-RECOVERY.md](ACCOUNT-RECOVERY.md)，自动化隔离恢复演练及实际环境验证步骤见 [RECOVERY-DRILL.md](RECOVERY-DRILL.md)。
