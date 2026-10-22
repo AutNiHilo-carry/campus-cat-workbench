@@ -31,13 +31,14 @@ function wbBusinessSave(type,values,id){
   v.cost=Number(v.cost||0);if(!Number.isFinite(v.cost)||v.cost<0)return wbError('费用应为非负金额');v.date=v.surgeryDate||old?.date||today;
  }
  if(type==='foster'){
+  if(v.situation!==undefined&&(typeof v.situation!=='string'||v.situation.length>1000))return wbError('寄养情况最多1000字');
   if(v.status==='寄养中'&&(!v.place?.trim()||!v.caregiver?.trim()))return wbError('入住寄养时请填写地点及实际照护人');
   if(v.status==='已结束'&&!['已领养','已放归'].includes(v.outcome))return wbError('请填写寄养结束去向');
   if(v.status==='已结束')v.completedDate=v.completedDate||today;
   v.segments=clone(old?.segments||[]);const last=v.segments.at(-1),changed=old&&old.status==='寄养中'&&(v.status!=='寄养中'||v.place!==old.place||v.caregiver!==old.caregiver);
   if(changed&&last&&!last.endDate)last.endDate=v.status==='已结束'?v.completedDate:v.transitionDate||today;
   if(v.status==='寄养中'&&(!last||last.endDate||last.place!==v.place||last.caregiver!==v.caregiver)){
-   const start=changed&&v.date===old.date?today:v.date||today;
+   const start=changed?(v.transitionDate||(v.date===old.date?today:v.date||today)):v.date||today;
    if(!wbValidDate(start)||start>today||last?.endDate&&start<last.endDate)return wbError('新一段入住日期不能早于上段结束日期或晚于今天');
    v.date=start;v.segments.push({id:wbId('SEG'),place:v.place,caregiver:v.caregiver,startDate:start,endDate:'',note:v.note||''});
   }
@@ -138,3 +139,27 @@ function wbSaveStoryComment(id,v){const row=find('stories',id),text=String(v.tex
 function wbSetStoryDeleted(id,deleted){const row=find('stories',id);if(!row)return wbError('轶事记录不存在');const before=clone(row);row.deletedAt=deleted?new Date().toISOString():null;persist(deleted?'轶事已移入最近删除':'已恢复轶事',{type:'stories',recordId:id,action:deleted?'删除轶事':'恢复轶事',before,after:clone(row)});return true;}
 
 function wbSaveCatProfile(values,id){const old=find('cats',id);if(id&&(!old||old.deletedAt))return wbError('猫咪档案已删除或不可用');const name=String(values.name||'').trim(),key=wbCatNameKey(name);if(!name)return wbError('请填写猫咪名字');if(data.cats.some(c=>c.id!==id&&(wbCatNameKey(c.name)===key||(c.aliases||[]).some(a=>wbCatNameKey(a)===key))))return wbError('该名字或曾用名已有档案，请使用原档案或先从回收站恢复');const next={...values,name,color:old?.color||'#c9ac82',aliases:[...(old?.aliases||[])],photos:old?.photos||[]};if(old&&name!==old.name){if(!next.aliases.includes(old.name))next.aliases.push(old.name);for(const type of [...businessTypes,'stories','monthly','movements','loans'])for(const row of data[type]||[])if(row.catId===id||!row.catId&&row.cat===old.name){row.cat=name;if([...businessTypes,'stories'].includes(type))row.catId=id;}}writeRecord('cats',next,id);return true;}
+
+function wbSaveBusinessFacts(type,id,mode,values){
+ const r=find(type,id);if(!r||r.deletedAt)return wbError('记录已删除或不可用，请刷新列表');
+ if(window.DanmiaoBackend?.user?.role==='viewer')return wbError('只读账号不能修改数据');
+ if(type==='sterilization'&&mode==='cost')return wbBusinessSave(type,{...r,cost:values.cost},id);
+ if(type==='sterilization'&&mode==='area')return wbBusinessSave(type,{...r,place:String(values.place||'').trim()},id);
+ if(type==='sterilization'&&mode==='capturer')return wbBusinessSave(type,{...r,capturer:String(values.capturer||'').trim()},id);
+ if(type==='sterilization'&&mode==='medical'){
+  if(r.status==='待绝育')return wbError('请通过更新状态登记医院与手术日期');
+  return wbBusinessSave(type,{...r,hospital:String(values.hospital||'').trim(),surgeryDate:String(values.surgeryDate||'').trim()},id);
+ }
+ if(type==='foster'&&mode==='situation'){const situation=String(values.situation||'').trim();if(situation.length>1000)return wbError('寄养情况最多1000字');return !!writeRecord(type,{situation},id);}
+ if(type!=='foster'||mode!=='placement')return wbError('未知编辑字段');
+ const place=String(values.place||'').trim(),caregiver=String(values.caregiver||'').trim();if(!place||!caregiver)return wbError('请填写寄养地点与实际照护人');
+ const last=r.segments?.at(-1);
+ if(r.status==='已结束'){
+  const segments=clone(r.segments||[]);if(segments.length)Object.assign(segments.at(-1),{place,caregiver});
+  return !!writeRecord(type,{place,caregiver,segments},id);
+ }
+ const changed=r.place!==place||r.caregiver!==caregiver;
+ if(r.status==='寄养中'&&!changed)return true;
+ const date=String(values.date||'');if(!wbValidDate(date)||date>today||last&&(date<(last.endDate||last.startDate)))return wbError('入住或交接日期不能晚于今天或早于上一段寄养');
+ return wbBusinessSave(type,{...r,place,caregiver,status:'寄养中',date,transitionDate:date},id);
+}

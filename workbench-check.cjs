@@ -354,3 +354,38 @@ assert.equal(call('wbSaveAnnouncement',{title:'新草稿',content:'草稿正文'
 assert.match(run('wbAnnouncementBar()'),/wb-announcement-ticker/);
 run("window.DanmiaoBackend={user:{id:'notice-viewer',role:'viewer'}}");assert.equal(call('wbSaveAnnouncement',{title:'非法发布',content:'正文',status:'已发布'}),false);eq('wbCanEditAnnouncements()',false);run('delete window.DanmiaoBackend');
 console.log('PASS: announcement first-read memory, content revision reminders, draft filtering, escaped text and frontend admin guard.');
+// Direct field edits retain business state, dates and historical foster segments.
+assert.equal(call('wbBusinessSave','sterilization',{cat:'字段编辑测试猫',status:'待绝育',cost:0,place:'测试花园'}),true);
+run('const factsSurgery=data.sterilization[0].id');
+view('sterilization');run("wbBusinessTab.sterilization='待绝育';wbRefresh()");
+assert.match(el('#wb-list').innerHTML,/<th>出没地区<\/th>/);assert.doesNotMatch(el('#wb-list').innerHTML,/医院|<th>抓捕人<\/th>/);
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'area',{place:'测试南门'}),true);
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'cost',{cost:'88.50'}),true);
+eq("find('sterilization',factsSurgery).cost",88.5);eq("find('sterilization',factsSurgery).status",'待绝育');eq("find('sterilization',factsSurgery).place",'测试南门');
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'cost',{cost:'-1'}),false);
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'medical',{hospital:'测试医院',surgeryDate:day}),false);
+call('wbEditBusinessFacts','sterilization',run('factsSurgery'),'cost');assert.match(el('#fields').innerHTML,/step="0.01"/);
+assert.equal(run("wbBusinessSave('sterilization',{...find('sterilization',factsSurgery),status:'住院中',hospital:'字段测试医院',surgeryDate:today},factsSurgery)"),true);
+run("wbBusinessTab.sterilization='住院中';wbRefresh()");assert.match(el('#wb-list').innerHTML,new RegExp('字段测试医院<span class="date">'+day));
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'capturer',{capturer:'测试同学'}),true);eq("find('sterilization',factsSurgery).surgeryDate",day);
+assert.equal(call('wbBusinessSave','foster',{cat:'字段编辑测试猫',status:'待安置',place:'',caregiver:''}),true);run('const factsFoster=data.foster[0].id');
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'食欲恢复\n需要安静观察'}),true);
+eq("find('foster',factsFoster).status",'待安置');eq("find('foster',factsFoster).segments.length",0);
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'测试一号点',caregiver:'甲',date:day}),true);
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'测试二号点',caregiver:'乙',date:day}),true);
+eq("find('foster',factsFoster).segments.length",2);eq("find('foster',factsFoster).segments[0].endDate",day);
+run('const factsHistory=JSON.stringify(find("foster",factsFoster).segments)');
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'观察正常 <测试>'}),true);eq('JSON.stringify(find("foster",factsFoster).segments)',run('factsHistory'));
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'x'.repeat(1001)}),false);
+assert.match(run("wbExperienceCard('foster',find('foster',factsFoster))"),/<dt>寄养情况<\/dt><dd>观察正常 &lt;测试&gt;<\/dd>/);
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'测试三号点',caregiver:'丙',date:'2099-01-01'}),false);
+run("window.DanmiaoBackend={user:{role:'viewer'}}");assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'无权修改'}),false);run('delete window.DanmiaoBackend');
+view('rescue');assert.match(el('#wb-list').innerHTML,/<th>猫咪<\/th><th>发现地点<\/th>/);
+console.log('PASS: direct cost/area edits, hospital/date order, separate rescue place, foster situation history and safe placement handoffs.');
+// Health is independent from discovery notes and optional on new profiles.
+eq("initial.cats.every(c=>c.health==='')",true);
+assert.equal(call('wbBusinessSave','rescue',{cat:'健康独立测试猫',place:'测试地点',issue:'发现情况不能填入健康状况',status:'待救助'}),true);
+eq("wbFindCat('健康独立测试猫').health",'');
+call('edit','cats');assert.match(el('#fields').innerHTML,/name="health"[^>]*value=""/);assert.doesNotMatch(el('#fields').innerHTML,/<input name="health"[^>]*required/);
+call('wbCatProfile',run('wbFindCat("健康独立测试猫")'));assert.doesNotMatch(el('#fields').innerHTML,/从早到晚 · 点击展开/);
+console.log('PASS: blank demo health defaults, independent automatic profiles and optional health editing.');

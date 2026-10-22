@@ -121,6 +121,7 @@ function validateState(next,old,files){
     if(c==='sterilization'&&r.status==='已放归')assert(date(r.releaseDate)&&r.releasePlace?.trim()&&(!r.surgeryDate||r.releaseDate>=r.surgeryDate),'放归信息不完整');
     if(c==='rescue'&&r.status==='就医中'&&(prior?.status!=='就医中'||prior?.hospital!==r.hospital))assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'就医中必须填写医院名称');
     if(c==='rescue')assert(r.place?.trim()&&r.issue?.trim(),'救助需填写地点和发现情况');
+    if(c==='foster'&&r.situation!==undefined)assert(typeof r.situation==='string'&&r.situation.length<=1000,'寄养情况最多1000字');
     if(c==='foster'&&r.status==='寄养中')assert(r.place?.trim()&&r.caregiver?.trim(),'寄养中需填写地点和照护人');
     if(c==='foster'&&r.status==='寄养中')assert(date(r.date)&&r.date<=future,'入住日期不能晚于今天');
     if(r.status==='已结束'&&prior?.status!=='已结束'){

@@ -7,7 +7,7 @@
       "sex": "公",
       "age": "约 1 岁",
       "place": "图书馆东侧",
-      "health": "后腿受伤，正在就医",
+      "health": "",
       "owner": "林同学",
       "photos": []
     },
@@ -18,7 +18,7 @@
       "sex": "母",
       "age": "约 8 个月",
       "place": "学生公寓",
-      "health": "健康，已驱虫",
+      "health": "",
       "owner": "陈同学",
       "photos": []
     },
@@ -29,7 +29,7 @@
       "sex": "母",
       "age": "约 2 岁",
       "place": "校外寄养点",
-      "health": "健康，等待绝育",
+      "health": "",
       "owner": "周同学",
       "photos": []
     },
@@ -40,7 +40,7 @@
       "sex": "母",
       "age": "约 1 岁半",
       "place": "食堂后门",
-      "health": "绝育后恢复良好",
+      "health": "",
       "owner": "王同学",
       "photos": []
     },
@@ -51,7 +51,7 @@
       "sex": "公",
       "age": "约 6 个月",
       "place": "校外寄养点",
-      "health": "健康，已接种疫苗",
+      "health": "",
       "owner": "许同学",
       "photos": []
     },
@@ -62,7 +62,7 @@
       "sex": "公",
       "age": "约 1 岁",
       "place": "教学楼北侧",
-      "health": "健康，待体检",
+      "health": "",
       "owner": "李同学",
       "photos": []
     }

@@ -109,7 +109,7 @@ function edit(type,id){
  if(type==='finance')return editFinance(id);
  if(type==='monthly')return editMonthly(id);
  if(type==='inventory')return editInventory(id);
- if(type==='cats')fields=optional(field('猫咪描述','description',r.description||'','textarea'))+field('猫咪名字','name',r.name)+field('性别','sex',r.sex||'未知','text',['未知','公','母'])+field('年龄','age',r.age||'待评估')+wbCoatField(r)+field('所在位置','place',r.place)+field('健康状况','health',r.health||'待评估')+optional(field('档案标记','archiveStatus',r.archiveStatus||'','text',[{value:'',label:'普通档案（领养状态自动关联）'},{value:'已去喵星',label:'已去喵星'}]))+optional(field('负责人（可留空，待认领）','owner',r.owner||''));
+ if(type==='cats')fields=optional(field('猫咪描述','description',r.description||'','textarea'))+field('猫咪名字','name',r.name)+field('性别','sex',r.sex||'未知','text',['未知','公','母'])+field('年龄','age',r.age||'待评估')+wbCoatField(r)+field('所在位置','place',r.place)+optional(field('健康状况（可留空，独立填写）','health',r.health||''))+optional(field('档案标记','archiveStatus',r.archiveStatus||'','text',[{value:'',label:'普通档案（领养状态自动关联）'},{value:'已去喵星',label:'已去喵星'}]))+optional(field('负责人（可留空，待认领）','owner',r.owner||''));
  else{
   fields=field('关联猫咪','cat',r.cat||catOptions()[0],'text',catOptions(r.cat));
   if(type==='rescue')fields+=field('发现地点','place',r.place)+field('救助情况','issue',r.issue,'textarea');
@@ -120,7 +120,7 @@ function edit(type,id){
   if(r.status===completedStates[type])fields+=field('完成日期','completedDate',r.completedDate||r.date,'date');
  }
  showModal(old?'编辑'+names[type]:'新增'+names[type]+'记录',fields,values=>{
-  const required=type==='cats'?['name','sex','age','place','health']:['cat','date','status',...(type==='foster'?['place','caregiver']:type==='adoption'?['applicant']:type==='rescue'?['place']:['hospital','cost'])];
+  const required=type==='cats'?['name','sex','age','place']:['cat','date','status',...(type==='foster'?['place','caregiver']:type==='adoption'?['applicant']:type==='rescue'?['place']:['hospital','cost'])];
   values.owner=String(values.owner||'').trim();
   if(!requireValues(values,required))return toast('请完整填写必填项'),false;
   if(type==='foster'&&values.endDate&&values.endDate<values.date)return toast('预计结束日期不能早于入住日期'),false;
