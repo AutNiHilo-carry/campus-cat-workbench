@@ -1,21 +1,28 @@
-MIT License
+大学猫协一站通 · Campus Cat Workbench
+使用前授权声明 / Prior Written Authorization Required
 
 Copyright (c) 2026 复旦大学爱和猫协
+All rights reserved. 保留所有权利。
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. 适用范围
+本声明适用于自本声明首次加入的提交起，项目权利人发布且有权按本声明授权的原创代码、文档与项目资源。第三方组件及已按其他许可证授予权利的内容除外。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+2. 使用前取得授权
+除适用法律、代码托管平台条款或先前有效许可另有规定外，任何个人或组织在运行、部署、修改、集成、再分发、销售本项目，或向第三方提供基于本项目的服务之前，均须事先取得复旦大学爱和猫协的明确书面授权。公益、非营利、校内、教学或商业用途均不自动获得使用许可。
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+3. 申请渠道与授权范围
+请通过微信公众号联系复旦大学爱和猫协申请授权。授权应明确被授权主体、用途、版本、范围和期限，以及是否允许修改、再分发或商业使用。未明确授予的权利仍由相应权利人保留。
+
+4. 源码公开不等于使用授权
+公开展示本项目源码，以及平台提供的查看或 Fork 功能，不构成超出平台条款、适用法律或有效许可范围的运行、部署、再分发或商业使用授权。取得软件副本、关注公众号或提交申请本身均不等于已获授权。
+
+5. 历史版本与第三方内容
+本声明不追溯撤销此前已合法取得的 MIT 或其他有效许可。历史 MIT 版本仍按其发布时的许可证处理，历史文本见 LICENSES/MIT-HISTORICAL.txt。本声明不限制第三方组件依其独立许可证授予的权利；详见 THIRD_PARTY_NOTICES.md。
+
+6. 声明保留
+在被授权范围内复制或分发时，应保留项目和相关第三方的版权及许可声明，除非另有合法且明确的书面约定。
+
+7. 责任说明
+在适用法律允许的范围内，本项目按现状提供，不作明示或默示担保。具体使用、支持与责任安排以适用法律和双方另行达成的有效授权约定为准。
+
+English summary: This is an authorization-required source-available project, not an open-source license. Except where applicable law, hosting-platform terms, or a prior valid license provides otherwise, obtain prior written authorization from 复旦大学爱和猫协 before using, deploying, modifying, integrating, redistributing, selling, or offering services based on the covered project. Prior valid MIT grants and independent third-party licenses are not revoked or restricted by this notice. Contact the association through its WeChat official account for permission. The Chinese text governs this notice.

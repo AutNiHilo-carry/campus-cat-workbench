@@ -149,13 +149,28 @@ function validateState(next,old,files){
     else assert(['预留','取消预留'].includes(m.type),'未知库存操作');
     expected.set(m.itemId,qty);
   }
+  const newMovements=next.movements.filter(m=>!old.movements.some(prior=>prior.id===m.id));
   for(const s of active('sales')){
+    const priorSale=old.sales.find(prior=>prior.id===s.id);
+    assert(Array.isArray(s.lines)&&s.lines.length>0&&s.lines.length<=20,'订单商品信息无效');
+    if(s.channel==='线下'&&!priorSale)assert(s.deliveredDate===s.date&&!s.cancelledAt,'线下义卖须按活动日期登记实际交付');
+    assert(!(s.deliveredDate&&s.cancelledAt),'订单不能同时交付与取消');
+    if(s.channel==='线上')assert(['快递','自提'].includes(s.delivery),'请选择有效交付方式');
+    if(s.deliveredDate&&!priorSale?.deliveredDate){
+      assert(date(s.deliveredDate)&&s.deliveredDate>=s.date&&s.deliveredDate<=future,'交付日期应在订单日至今天之间');
+      if(s.channel==='线上'){
+        const deliveries=newMovements.filter(m=>m.saleId===s.id&&['发货','自提交付'].includes(m.type));
+        assert(deliveries.length===s.lines.length,'交付订单必须同时登记每款商品的出库流水');
+        for(const line of s.lines)assert(deliveries.filter(m=>m.itemId===line.itemId&&m.date===s.deliveredDate&&m.type===(s.delivery==='自提'?'自提交付':'发货')).reduce((n,m)=>n+m.quantity,0)===line.quantity,'交付出库数量、日期或方式与订单不一致');
+      }
+    }
     assert(['线上','线下'].includes(s.channel)&&date(s.date)&&s.date<=future&&Array.isArray(s.lines)&&s.lines.length>0&&s.lines.length<=20,'订单信息不完整');
     const seen=new Set();for(const l of s.lines){assert(next.inventory.some(i=>i.id===l.itemId&&i.group==='文创')&&!seen.has(l.itemId)&&Number.isInteger(l.quantity)&&l.quantity>0,'订单商品或数量无效');seen.add(l.itemId);}
     assert(Number.isSafeInteger(s.amountCents)&&s.amountCents>0&&s.amountCents<=100000000,'订单金额无效');
     if(s.channel==='线上')assert(s.amountCents===s.lines.reduce((sum,l)=>sum+l.quantity*l.unitPriceCents,0),'订单总额不等于商品金额');
     if(s.channel==='线下'&&!old.sales.some(x=>x.id===s.id))for(const l of s.lines)if(oldItem(l.itemId))expected.set(l.itemId,expected.get(l.itemId)-l.quantity);
   }
+  for(const movement of newMovements.filter(m=>['发货','自提交付'].includes(m.type))){const sale=next.sales.find(s=>s.id===movement.saleId);assert(sale&&sale.channel==='线上'&&sale.deliveredDate&&!sale.cancelledAt&&!old.sales.find(s=>s.id===sale.id)?.deliveredDate,'订单出库流水必须关联本次有效交付');}
   for(const i of next.inventory)if(oldItem(i.id))assert(i.qty===expected.get(i.id),'库存变化必须与入出库、借还或销售流水一致');
   for(const loan of next.loans){const prior=old.loans.find(l=>l.id===loan.id);if(!prior)assert(next.movements.some(m=>m.loanId===loan.id&&m.type==='借出'&&m.itemId===loan.itemId&&m.quantity===loan.quantity),'借出记录必须关联实际出库流水');if(loan.returnedDate&&!prior?.returnedDate)assert(date(loan.returnedDate)&&loan.returnedDate>=loan.date&&loan.returnedDate<=future&&next.movements.some(m=>!old.movements.some(x=>x.id===m.id)&&m.loanId===loan.id&&m.type==='归还'&&m.quantity===loan.quantity&&m.itemId===loan.returnItemId),'归还必须关联实际入库流水');}
   for(const bill of active('finance'))if(['已入账','已报销','已结清'].includes(bill.status))assert(date(bill.paidDate)&&bill.paidDate>=bill.date&&bill.paidDate<=future,'实际收付款日期无效');

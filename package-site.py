@@ -23,7 +23,7 @@ assets.feed((ROOT / "index.html").read_text(encoding="utf-8"))
 # The avatar atlas is referenced dynamically by the application.
 assets.files.add("assets/default-cat-avatars-v4.png")
 assets.files.add("vendor/pinyin-pro-LICENSE")
-assets.files.update({"LICENSE", "THIRD_PARTY_NOTICES.md"})
+assets.files.update({"LICENSE", "LICENSES/MIT-HISTORICAL.txt", "THIRD_PARTY_NOTICES.md"})
 output = ROOT / "danmiao-static-site.zip"
 for name in assets.files:
     target = (ROOT / name).resolve()

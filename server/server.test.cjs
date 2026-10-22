@@ -76,6 +76,11 @@ test('local backend: authentication, transactions, permissions, files and restar
    let result=await patch(users.member,[change('sales',null,sale),change('finance',null,bill)]);assert.equal(result.status,200,JSON.stringify(result.result));
    let current=await get(users.member),order=current.state.sales.find(s=>s.id===sale.id),stock=current.state.inventory.find(i=>i.id===item.id);
    const movement={id:'DELIVERY-TEST',itemId:stock.id,itemName:stock.name,type:'自提交付',quantity:1,date:today(),saleId:order.id,beforeQty:stock.qty,afterQty:stock.qty-1};
+   assert.equal((await patch(users.member,[change('sales',order,{...order,deliveredDate:today()})])).status,400);
+   assert.equal((await patch(users.member,[change('sales',order,{...order,deliveredDate:today()}),change('movements',null,movement)])).status,400);
+   assert.equal((await patch(users.member,[change('sales',order,{...order,deliveredDate:today(),cancelledAt:new Date().toISOString()})])).status,400);
+   assert.equal((await get(admin)).state.inventory.find(i=>i.id===stock.id).qty,stock.qty);
+   assert.equal((await get(admin)).state.sales.find(s=>s.id===order.id).deliveredDate,'');
    result=await patch(users.member,[change('sales',order,{...order,deliveredDate:today()}),change('inventory',stock,{...stock,qty:stock.qty-1,sold:stock.sold+1}),change('movements',null,movement)]);assert.equal(result.status,200,JSON.stringify(result.result));
    const income=(await get(users.finance)).state.finance.find(b=>b.id===bill.id);assert.equal((await patch(users.finance,[change('finance',income,{...income,status:'已入账',paidDate:today()})])).status,200);
    current=await get(admin);assert.equal(current.state.inventory.find(i=>i.id===stock.id).qty,stock.qty-1);
