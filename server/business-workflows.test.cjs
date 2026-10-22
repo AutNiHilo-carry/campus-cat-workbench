@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const D=require('../shared-domain.js'),V=require('./validation.cjs'),{COLLECTIONS}=require('./store.cjs');
 const date=D.day(),user={id:'BUSINESS-ADMIN',name:'测试管理员',role:'admin'};
 function fresh(){return D.normalize({...Object.fromEntries(COLLECTIONS.map(c=>[c,[]])),audit:[],activities:[],schemaVersion:4,cats:[{id:'C-RULE',name:'业务猫',place:'初始地点',discoveryPlace:'初始地点',health:''}]});}
-function commit(state,collection,values){const before=structuredClone(state[collection].find(r=>r.id===values.id)||null),after={...before,...values};const {next}=V.applyChanges(state,[{collection,id:values.id,before,after}],user);V.validateState(next,state,()=>null);return D.normalize(next);}
+function commit(state,collection,values,files=()=>null){const before=structuredClone(state[collection].find(r=>r.id===values.id)||null),after={...before,...values};const {next}=V.applyChanges(state,[{collection,id:values.id,before,after}],user);V.validateState(next,state,files);return D.normalize(next);}
 const cat={catId:'C-RULE',cat:'业务猫'};
 function foster(){return {...cat,id:'F-RULE',status:'寄养中',place:'寄养点',caregiver:'照护人',date,segments:[{id:'SEG-RULE',place:'寄养点',caregiver:'照护人',startDate:date,endDate:''}],situation:'寄养观察'};}
 test('preoperative hospital stays do not claim surgery; completion synchronizes neutering and work',()=>{
@@ -49,4 +49,12 @@ test('correcting a rescue result cancels only an unused automatic placement',()=
  let s=commit(fresh(),'rescue',{...cat,id:'R-LINK',status:'已结束',place:'发现点',issue:'观察',outcome:'转寄养',completedDate:date});const fid=s.foster[0].id;
  const corrected=commit(s,'rescue',{id:'R-LINK',outcome:'放归',releasePlace:'实际放归点',releaseDate:date});assert.ok(corrected.foster[0].deletedAt);assert.throws(()=>commit(corrected,'foster',{id:fid,deletedAt:''}),/原救助结果已更正/);
  s=commit(s,'foster',{id:fid,...foster(),id:fid});assert.throws(()=>commit(s,'rescue',{id:'R-LINK',outcome:'放归',releasePlace:'实际放归点',releaseDate:date}),/已有入住经历/);
+});
+
+test('pending sterilization sighting photos sync once to the correct cat album and preserve independent deletions',()=>{
+ let s=commit(fresh(),'sterilization',{...cat,id:'S-PHOTO',status:'待绝育',place:'图书馆北侧',date,photos:[{id:'P-SIGHT',name:'sighting.png',type:'image/png'}]},id=>id==='P-SIGHT'?{kind:'image'}:null);
+ assert.equal(s.cats[0].photos.length,1);assert.equal(s.cats[0].photos[0].sourceId,'S-PHOTO');assert.match(s.cats[0].photos[0].note,/目击照片.*图书馆北侧/);
+ s=D.normalize(s);assert.equal(s.cats[0].photos.length,1);
+ const photo=s.cats[0].photos[0];s.cats[0].photos=[];s.cats[0].deletedFiles=[{key:'photos',file:photo}];s=D.normalize(s);assert.equal(s.cats[0].photos.length,0);assert.equal(s.sterilization[0].photos.length,1);
+ s.cats[0].deletedFiles=[];s=D.normalize(s);s=commit(s,'sterilization',{id:'S-PHOTO',status:'住院中',hospital:'医院',photos:[]},id=>id==='P-SIGHT'?{kind:'image'}:null);assert.equal(s.cats[0].photos.length,1);
 });

@@ -174,6 +174,12 @@ function syncBusinessChange(store,type,before,after){
 }
 function wbSync(store,asOf=day()){
  const active=t=>wbActive(store,t),works=[];
+ // Keep a separate archive copy; removing it there must not re-import it on reload.
+ for(const r of active('sterilization').filter(r=>r.status==='待绝育')){
+  const cat=active('cats').find(c=>sameCat(r,{catId:c.id,cat:c.name}));if(!cat)continue;
+  cat.photos??=[];const known=new Set([...cat.photos.map(p=>p.id),...(cat.deletedFiles||[]).filter(e=>e.key==='photos').map(e=>e.file?.id)]);
+  for(const photo of r.photos||[])if(!known.has(photo.id)){cat.photos.push({...photo,sourceType:'sterilization',sourceId:r.id,note:photo.note||'目击照片'+(r.place?' · '+r.place:'')});known.add(photo.id);}
+ }
  for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status)&&wbValidDate(r.surgeryDate)&&r.surgeryDate<=asOf){const cat=active('cats').find(c=>sameCat(r,{catId:c.id,cat:c.name}));if(cat)cat.neuterStatus='已绝育';}
  // Stable source ids ensure repeated saves/reloads do not duplicate linked records.
  for(const r of active('rescue'))if(r.status==='已结束'&&r.outcome==='转寄养'&&!store.foster.some(f=>f.sourceRescueId===r.id))store.foster.unshift({id:'AUTO-F-'+r.id,cat:r.cat||'',catId:r.catId||'',place:'',caregiver:'',owner:'',date:r.completedDate||asOf,endDate:'',status:'待安置',outcome:'',note:r.issue||'',photos:[...(r.photos||[])],segments:[],checklist:{},sourceRescueId:r.id});

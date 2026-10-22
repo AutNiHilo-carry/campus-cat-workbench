@@ -94,7 +94,7 @@ function field(label,name,value='',type='text',options=null){
  return `<label>${label}${control}</label>`;
 }
 let wbModalStack=[],wbModalTitle='';
-function showModal(title,html,onSubmit,submitLabel='保存记录'){const dialog=$('#dialog'),fields=$('#fields');wbCloseDropdown();if(!dialog.open){wbModalStack=[];}else if(title!==wbModalTitle&&typeof fields.replaceChildren==='function'){const ancestor=wbModalStack.map(s=>s.title).lastIndexOf(title);if(ancestor>=0)wbModalStack.length=ancestor;else wbModalStack.push({title:wbModalTitle,nodes:[...fields.childNodes],handler:submitHandler,classes:dialog.className,actionsHidden:$('.modal-actions').hidden,submitLabel:$('#form button[type="submit"]').textContent,scrollTop:dialog.scrollTop,titleActions:document.querySelector('.story-title-actions')});}document.querySelector('.story-title-actions')?.remove?.();wbModalTitle=title;dialog.classList.remove('avatar-dialog','attachment-dialog','cat-detail-dialog','inventory-dialog','photo-detail-dialog','story-reader-dialog');$('#modal-title').textContent=title;fields.innerHTML=html;submitHandler=onSubmit;$('.modal-actions').hidden=!onSubmit;$('#form button[type="submit"]').textContent=submitLabel;$('#form button[type="submit"]').disabled=false;dialog.showModal();dialog.scrollTop=0;wbEnhanceSelects()}
+function showModal(title,html,onSubmit,submitLabel='保存记录'){const dialog=$('#dialog'),fields=$('#fields');wbCloseDropdown();if(!dialog.open){wbModalStack=[];}else if(title!==wbModalTitle&&typeof fields.replaceChildren==='function'){const ancestor=wbModalStack.map(s=>s.title).lastIndexOf(title);if(ancestor>=0)wbModalStack.length=ancestor;else wbModalStack.push({title:wbModalTitle,nodes:[...fields.childNodes],handler:submitHandler,classes:dialog.className,actionsHidden:$('.modal-actions').hidden,submitLabel:$('#form button[type="submit"]').textContent,scrollTop:dialog.scrollTop,titleActions:document.querySelector('.story-title-actions')});}document.querySelector('.story-title-actions')?.remove?.();wbModalTitle=title;dialog.classList.remove('avatar-dialog','attachment-dialog','cat-detail-dialog','inventory-dialog','photo-detail-dialog','story-reader-dialog','cat-edit-dialog');$('#modal-title').textContent=title;fields.innerHTML=html;submitHandler=onSubmit;$('.modal-actions').hidden=!onSubmit;$('#form button[type="submit"]').textContent=submitLabel;$('#form button[type="submit"]').disabled=false;dialog.showModal();dialog.scrollTop=0;wbEnhanceSelects()}
 function wbCloseModal(){wbCloseDropdown();const prior=wbModalStack.pop(),dialog=$('#dialog');if(!prior){dialog.close();wbModalTitle='';return;}document.querySelector('.story-title-actions')?.remove?.();$('#modal-title').textContent=prior.title;if(prior.titleActions)document.querySelector('.modal-head>div').append(prior.titleActions);$('#fields').replaceChildren(...prior.nodes);submitHandler=prior.handler;dialog.className=prior.classes;$('.modal-actions').hidden=prior.actionsHidden;$('#form button[type="submit"]').textContent=prior.submitLabel;$('#form button[type="submit"]').disabled=false;wbModalTitle=prior.title;dialog.scrollTop=prior.scrollTop;wbEnhanceSelects();wbLoadImages();}
 function requireValues(values,keys){return keys.every(key=>String(values[key]??'').trim())}
 function readMoney(value){const s=String(value??'').trim();if(!/^\d{1,7}(\.\d{1,2})?$/.test(s))return null;const [whole,fraction='']=s.split('.');const cents=Number(whole)*100+Number(fraction.padEnd(2,'0'));return cents>0&&cents<=100000000?cents:null}
@@ -110,7 +110,7 @@ function edit(type,id){
  if(type==='finance')return editFinance(id);
  if(type==='monthly')return editMonthly(id);
  if(type==='inventory')return editInventory(id);
- if(type==='cats')fields=optional(field('猫咪描述','description',r.description||'','textarea'))+field('猫咪名字','name',r.name)+field('性别','sex',r.sex||'未知','text',['未知','公','母'])+field('年龄','age',r.age||'待评估')+wbCoatField(r)+(old?(r.discoveryPlace?field('发现地点（首次建档后固定）','discoveryPlace',r.discoveryPlace).replace('<input','<input readonly'):optional(field('发现地点（旧档案首次补填后固定）','discoveryPlace','')))+field('当前地点','place',r.place):field('发现地点（首次建档后固定）','discoveryPlace',''))+optional(field('健康状况（可留空，独立填写）','health',r.health||''))+wbProfileStatusFields(r)+optional(field('负责人（可留空，待认领）','owner',r.owner||''));
+ if(type==='cats')fields=wbCatEditFields(r,old);
  else{
   fields=field('关联猫咪','cat',r.cat||catOptions()[0],'text',catOptions(r.cat));
   if(type==='rescue')fields+=field('发现地点','place',r.place)+field('救助情况','issue',r.issue,'textarea');
@@ -132,7 +132,7 @@ function edit(type,id){
   if(values.status===completedStates[type])values.completedDate=values.completedDate||today;
   if(values.completedDate&&values.completedDate>today)return toast('已完成工作的日期不能晚于今天'),false;
   writeRecord(type,values,id);return true;
- });if(type==='cats')wbProfileStatusVisibility();
+ });if(type==='cats'){$('#dialog').classList.add('cat-edit-dialog');wbProfileStatusVisibility();wbLoadImages();}
 }
 function editMonthly(id,source){
  const old=find('monthly',id),r=old||source||{};

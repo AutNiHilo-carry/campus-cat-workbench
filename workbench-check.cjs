@@ -451,3 +451,7 @@ eq('wbFollowup(data.adoption.find(a=>a.catId===profileManagedCat)).label','已�
 run("wbBusinessTab.cats='寄养中'");view('cats');assert.match(el('#wb-list').innerHTML,/外部寄养测试猫/);assert.doesNotMatch(el('#wb-list').innerHTML,/档案建业务猫/);
 run("wbBusinessTab.rescue='待救助'");view('rescue');assert.doesNotMatch(el('#wb-list').innerHTML,/<th>医院<\/th>/);assert.match(el('#wb-list').innerHTML,/<th>照片<\/th>/);
 console.log('PASS: preoperative surgery stages, profile-only/managed records, memorial date/grayscale/archived follow-up and foster filtering.');
+
+run("wbBusinessTab.sterilization='待绝育'");view('sterilization');assert.match(el('#wb-list').innerHTML,/<th>目击照片<\/th>/);
+const identityEditor=call('wbCatEditFields',{id:'C-EDITOR',name:'编辑布局猫',sex:'母',age:'1岁',place:'校园'},true);assert.match(identityEditor,/cat-edit-card/);assert.match(identityEditor,/data-wb-enhanced="native"/);assert.match(identityEditor,/name="archiveStatus"/);assert.match(identityEditor,/name="description"/);
+console.log('PASS: sighting photo labels and identity-card profile editor with native status selection.');
