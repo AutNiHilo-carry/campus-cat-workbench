@@ -358,7 +358,7 @@ console.log('PASS: announcement first-read memory, content revision reminders, d
 assert.equal(call('wbBusinessSave','sterilization',{cat:'字段编辑测试猫',status:'待绝育',cost:0,place:'测试花园'}),true);
 run('const factsSurgery=data.sterilization[0].id');
 view('sterilization');run("wbBusinessTab.sterilization='待绝育';wbRefresh()");
-assert.match(el('#wb-list').innerHTML,/<th>出没地区<\/th>/);assert.doesNotMatch(el('#wb-list').innerHTML,/医院|<th>抓捕人<\/th>/);
+assert.match(el('#wb-list').innerHTML,/<th>最近目击地点<\/th>/);assert.doesNotMatch(el('#wb-list').innerHTML,/医院|<th>抓捕人<\/th>/);
 assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'area',{place:'测试南门'}),true);
 assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'cost',{cost:'88.50'}),true);
 eq("find('sterilization',factsSurgery).cost",88.5);eq("find('sterilization',factsSurgery).status",'待绝育');eq("find('sterilization',factsSurgery).place",'测试南门');
@@ -380,7 +380,7 @@ assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',
 assert.match(run("wbExperienceCard('foster',find('foster',factsFoster))"),/<dt>寄养情况<\/dt><dd>观察正常 &lt;测试&gt;<\/dd>/);
 assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'测试三号点',caregiver:'丙',date:'2099-01-01'}),false);
 run("window.DanmiaoBackend={user:{role:'viewer'}}");assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'situation',{situation:'无权修改'}),false);run('delete window.DanmiaoBackend');
-view('rescue');assert.match(el('#wb-list').innerHTML,/<th>猫咪<\/th><th>发现地点<\/th>/);
+view('rescue');assert.match(el('#wb-list').innerHTML,/<th>猫咪<\/th><th>最近目击地点<\/th>/);
 console.log('PASS: direct cost/area edits, hospital/date order, separate rescue place, foster situation history and safe placement handoffs.');
 // Health is independent from discovery notes and optional on new profiles.
 eq("initial.cats.every(c=>c.health==='')",true);
@@ -401,3 +401,14 @@ eq('wbFindCat("字段编辑测试猫").health','精神正常');
 call('wbCatProfile',run('wbFindCat("字段编辑测试猫")'));assert.match(el('#fields').innerHTML,/data-action="wb-cat-overview"/);
 call('wbEditCatOverview',locationCat,'health');assert.equal(run("submitHandler({health:''})"),false);eq('wbFindCat("字段编辑测试猫").health','');
 console.log('PASS: editable profile facts, latest hospital/foster location changes and unrelated-edit isolation.');
+// Discovery place is fixed at creation; current place tracks later moves.
+assert.equal(call('wbSaveCatProfile',{name:'发现地点测试猫',sex:'未知',age:'待评估',discoveryPlace:'最初花园'}),true);
+run('const discoveryCat=wbFindCat("发现地点测试猫").id');eq('wbFindCat("发现地点测试猫").place','最初花园');
+assert.equal(call('wbSaveCatOverview',run('discoveryCat'),'place','后来医院'),true);eq('wbFindCat("发现地点测试猫").discoveryPlace','最初花园');
+assert.equal(call('wbSaveCatOverview',run('discoveryCat'),'discoveryPlace','篡改地点'),false);
+assert.equal(call('wbSaveCatProfile',{name:'发现地点测试猫',discoveryPlace:'篡改地点'},run('discoveryCat')),false);
+assert.equal(call('wbSaveCatProfile',{name:'发现地点测试猫',place:'后来寄养点'},run('discoveryCat')),true);eq('wbFindCat("发现地点测试猫").discoveryPlace','最初花园');
+assert.equal(call('wbBusinessSave','rescue',{cat:'自动发现地点猫',place:'首次发现点',issue:'需要观察',status:'待救助'}),true);eq('wbFindCat("自动发现地点猫").discoveryPlace','首次发现点');
+run('delete wbFindCat("自动发现地点猫").discoveryPlace');
+assert.equal(call('wbSaveCatOverview',run('wbFindCat("自动发现地点猫").id'),'discoveryPlace','旧档案补填点'),true);eq('wbFindCat("自动发现地点猫").place','首次发现点');
+console.log('PASS: fixed discovery place, initial current-place default, later moves and one-time legacy filling.');

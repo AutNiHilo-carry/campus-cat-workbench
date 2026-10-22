@@ -22,6 +22,7 @@ function stripped(row){if(!row)return row;const copy=structuredClone(row);for(co
 function same(a,b){return isDeepStrictEqual(stripped(a),stripped(b));}
 function authorizeChange(c,before,after,user,next){
   assert(user.role!=='viewer','只读账号不能修改数据',403);
+  if(c==='cats'&&before?.discoveryPlace)assert(after.discoveryPlace===before.discoveryPlace,'发现地点首次登记后固定，不能修改');
   if(c==='announcements')assert(user.role==='admin','仅管理员可管理公告',403);
   if(c==='finance'){
     const generated=after.saleId&&next.sales.find(s=>s.id===after.saleId);
@@ -86,6 +87,7 @@ function applyChanges(state,changes,user){
       continue;
     }
     const value=structuredClone(after);
+    if(c==='cats'&&!current){value.discoveryPlace??=value.place||'';if(!value.place)value.place=value.discoveryPlace;}
     if(c==='adoption'&&!agreementAccess(user)){assert(!(value.agreements||[]).length,'协议仅限管理员及领养负责人管理',403);value.agreements=current?.agreements||[];value.deletedFiles=[...(value.deletedFiles||[]).filter(e=>e.key!=='agreements'),...(current?.deletedFiles||[]).filter(e=>e.key==='agreements')];}
     value.createdBy=current?.createdBy||user.id;value.createdAt=current?.createdAt||new Date().toISOString();value.updatedBy=user.id;value.updatedAt=new Date().toISOString();
     if(c==='finance'&&current?.status==='待审核'&&['审核通过','未通过'].includes(value.status)){value.reviewer=user.name;value.reviewDate=today();}
@@ -112,7 +114,7 @@ function validateState(next,old,files){
     assert(Array.isArray(next[c])&&next[c].length<=20000,'数据量超过本地版限制');
     const ids=new Set();for(const row of next[c]){shape(row);assert(typeof row.id==='string'&&!ids.has(row.id),'记录编号重复');ids.add(row.id);assert(JSON.stringify(row).length<=300000,'单条记录过大');}
   }
-  const names=new Map();for(const cat of active('cats')){assert(cat.archiveStatus===undefined||['','已去喵星'].includes(cat.archiveStatus),'无效档案标记');assert(typeof cat.name==='string'&&cat.name.trim().length>0&&cat.name.length<=80,'猫咪名字无效');for(const name of [cat.name,...cat.aliases||[]]){const key=String(name).normalize('NFKC').toLowerCase().replace(/\s+/g,'');assert(key&&(!names.has(key)||names.get(key)===cat.id),'猫咪名字或曾用名重复');names.set(key,cat.id);}}
+  const names=new Map();for(const cat of active('cats')){assert(cat.discoveryPlace===undefined||typeof cat.discoveryPlace==='string'&&cat.discoveryPlace.length<=150,'发现地点应为150字以内文字');assert(cat.archiveStatus===undefined||['','已去喵星'].includes(cat.archiveStatus),'无效档案标记');assert(typeof cat.name==='string'&&cat.name.trim().length>0&&cat.name.length<=80,'猫咪名字无效');for(const name of [cat.name,...cat.aliases||[]]){const key=String(name).normalize('NFKC').toLowerCase().replace(/\s+/g,'');assert(key&&(!names.has(key)||names.get(key)===cat.id),'猫咪名字或曾用名重复');names.set(key,cat.id);}}
   for(const c of business)for(const r of active(c)){
     const prior=old[c].find(row=>row.id===r.id);
     assert(states[c].includes(r.status),'无效业务状态');
@@ -122,7 +124,7 @@ function validateState(next,old,files){
     if(c==='sterilization'&&r.status==='住院中')assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital)&&date(r.surgeryDate),'住院中必须填写医院和手术日期');
     if(c==='sterilization'&&r.status==='已放归')assert(date(r.releaseDate)&&r.releasePlace?.trim()&&(!r.surgeryDate||r.releaseDate>=r.surgeryDate),'放归信息不完整');
     if(c==='rescue'&&r.status==='就医中'&&(prior?.status!=='就医中'||prior?.hospital!==r.hospital))assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'就医中必须填写医院名称');
-    if(c==='rescue')assert(r.place?.trim()&&r.issue?.trim(),'救助需填写地点和发现情况');
+    if(c==='rescue')assert(r.place?.trim()&&r.issue?.trim(),'救助需填写最近目击地点和发现情况');
     if(c==='foster'&&r.situation!==undefined)assert(typeof r.situation==='string'&&r.situation.length<=1000,'寄养情况最多1000字');
     if(c==='foster'&&r.status==='寄养中')assert(r.place?.trim()&&r.caregiver?.trim(),'寄养中需填写地点和照护人');
     if(c==='foster'&&r.status==='寄养中')assert(date(r.date)&&r.date<=future,'入住日期不能晚于今天');

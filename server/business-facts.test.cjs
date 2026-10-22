@@ -29,3 +29,12 @@ test('server business changes synchronize location and current foster situation'
  save('rescue',{id:'R-LOCATION',hospital:'第二医院'});assert.equal(state.cats[0].place,'第二医院');
  const renamed={...state.rescue[0],cat:'新猫名'};domain.syncBusinessChange(state,'rescue',state.rescue[0],renamed);assert.equal(state.cats[0].place,'第二医院');
 });
+test('discovery place defaults once and cannot be overwritten through the API',()=>{
+ const domain=require('../shared-domain.js');
+ const state=domain.normalize({...Object.fromEntries(require('./store.cjs').COLLECTIONS.map(c=>[c,[]])),audit:[],activities:[],schemaVersion:4,cats:[]});
+ const user={id:'MEMBER-DISCOVERY',name:'测试成员',role:'member'},cat={id:'C-DISCOVERY',name:'发现地点猫',discoveryPlace:'初始花园'};
+ const first=V.applyChanges(state,[{collection:'cats',id:cat.id,before:null,after:cat}],user).next;assert.equal(first.cats[0].place,'初始花园');
+ assert.throws(()=>V.applyChanges(first,[{collection:'cats',id:cat.id,before:first.cats[0],after:{...first.cats[0],discoveryPlace:'其他地点'}}],user),/发现地点首次登记后固定/);
+ const moved=V.applyChanges(first,[{collection:'cats',id:cat.id,before:first.cats[0],after:{...first.cats[0],place:'当前医院'}}],user).next;assert.equal(moved.cats[0].discoveryPlace,'初始花园');
+ const snapshot=structuredClone(moved);domain.normalize(moved);assert.equal(moved.cats[0].discoveryPlace,snapshot.cats[0].discoveryPlace);
+});
