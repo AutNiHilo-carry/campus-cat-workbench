@@ -99,7 +99,7 @@ function archiveProfileError(cat,prior,asOf=day()){
  return '';
 }
 function sameCat(a,b){return !!a&&!!b&&(a.catId&&b.catId?a.catId===b.catId:a.cat===b.cat);}
-function catMatchesTab(store,cat,tab){return !tab||tab==='全部'||(tab==='寄养中'?catCategory(store,cat)!=='已去喵星'&&(cat.archiveStatus==='寄养中'||wbActive(store,'foster').some(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&r.status==='寄养中')):catCategory(store,cat)===tab);}
+function catMatchesTab(store,cat,tab){return !tab||tab==='全部'||(tab==='住院中'?catCategory(store,cat)!=='已去喵星'&&['rescue','sterilization'].some(type=>wbActive(store,type).some(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&r.status===(type==='rescue'?'就医中':'住院中'))):tab==='寄养中'?catCategory(store,cat)!=='已去喵星'&&(cat.archiveStatus==='寄养中'||wbActive(store,'foster').some(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&r.status==='寄养中')):catCategory(store,cat)===tab);}
 function businessRuleError(store,type,r,prior,asOf=day()){
  if(!businessTypes.includes(type)||!r)return '';
  if(r.deletedAt)return '';

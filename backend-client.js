@@ -58,7 +58,7 @@
   const result=await api('/api/state');Object.assign(backend,{user,state:result.state,lastSubmitted:clone(result.state),revision:result.revision,day:result.day,summaries:result.summaries});window.DanmiaoBackend=backend;
   const shell=new DOMParser().parseFromString(await(await fetch('/app-shell')).text(),'text/html');
   for(const link of shell.querySelectorAll('link[rel="stylesheet"]')){const stylesheet=document.createElement('link');stylesheet.rel='stylesheet';stylesheet.href=link.getAttribute('href');document.head.append(stylesheet);}
-  const backendStyle=document.createElement('link');backendStyle.rel='stylesheet';backendStyle.href='backend.css?v=0.6.0';document.head.append(backendStyle);
+  const backendStyle=document.createElement('link');backendStyle.rel='stylesheet';backendStyle.href='backend.css?v=0.7.0';document.head.append(backendStyle);
   const scripts=[...shell.querySelectorAll('script[src]')].map(s=>s.getAttribute('src'));shell.querySelectorAll('script').forEach(s=>s.remove());document.body.className='role-'+user.role;document.body.innerHTML=shell.body.innerHTML;
   for(const src of scripts)await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>reject(new Error('加载程序失败'));document.body.append(script);});
   appLoaded=true;

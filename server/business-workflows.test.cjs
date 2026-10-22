@@ -58,3 +58,22 @@ test('pending sterilization sighting photos sync once to the correct cat album a
  const photo=s.cats[0].photos[0];s.cats[0].photos=[];s.cats[0].deletedFiles=[{key:'photos',file:photo}];s=D.normalize(s);assert.equal(s.cats[0].photos.length,0);assert.equal(s.sterilization[0].photos.length,1);
  s.cats[0].deletedFiles=[];s=D.normalize(s);s=commit(s,'sterilization',{id:'S-PHOTO',status:'住院中',hospital:'医院',photos:[]},id=>id==='P-SIGHT'?{kind:'image'}:null);assert.equal(s.cats[0].photos.length,1);
 });
+
+test('hospital archive filter follows medical records and excludes memorial cats',()=>{
+ let s=fresh();assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
+ s=commit(s,'rescue',{...cat,id:'R-HOSP-TAB',status:'就医中',hospital:'医院',issue:'观察',date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),true);
+ s=commit(s,'rescue',{id:'R-HOSP-TAB',status:'已结束',outcome:'放归',releasePlace:'校园',completedDate:date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
+ s=commit(s,'sterilization',{...cat,id:'S-HOSP-TAB',status:'住院中',hospital:'医院',date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),true);
+ s=commit(s,'cats',{id:'C-RULE',archiveStatus:'已去喵星',memorialDate:date});assert.equal(D.catMatchesTab(s,s.cats[0],'住院中'),false);
+});
+
+test('loan and return movements must match one immutable loan identity, quantity and source',()=>{
+ const initial=fresh();initial.inventory=[{id:'I-LOAN',name:'诱捕笼',group:'日常',kind:'可借用器材',unit:'个',place:'库房',qty:2,reserved:0}];
+ const borrowed=structuredClone(initial);borrowed.inventory[0].qty=1;borrowed.loans=[{id:'L-PAIR',itemId:'I-LOAN',itemName:'诱捕笼',quantity:1,borrower:'测试成员',date,movementId:'M-OUT',returnedDate:''}];borrowed.movements=[{id:'M-OUT',loanId:'L-PAIR',type:'借出',itemId:'I-LOAN',quantity:1,date}];
+ assert.doesNotThrow(()=>V.validateState(borrowed,initial,()=>null));
+ const unlinked=structuredClone(borrowed);unlinked.movements[0].loanId='不存在';assert.throws(()=>V.validateState(unlinked,initial,()=>null),/有效借还单号/);
+ const returned=structuredClone(borrowed);returned.inventory[0].qty=2;Object.assign(returned.loans[0],{returnedDate:date,returnItemId:'I-LOAN'});returned.movements.push({id:'M-IN',loanId:'L-PAIR',type:'归还',itemId:'I-LOAN',quantity:1,date});assert.doesNotThrow(()=>V.validateState(returned,borrowed,()=>null));
+ const wrong=structuredClone(returned);wrong.movements[1].quantity=2;wrong.inventory[0].qty=3;assert.throws(()=>V.validateState(wrong,borrowed,()=>null),/数量与借还单不一致/);
+ const wrongItem=structuredClone(returned);wrongItem.inventory[0].qty=1;wrongItem.inventory.push({...initial.inventory[0],id:'I-WRONG',name:'其他器材',qty:1});wrongItem.loans[0].returnItemId='I-WRONG';wrongItem.movements[1].itemId='I-WRONG';assert.throws(()=>V.validateState(wrongItem,borrowed,()=>null),/器材与借出来源不一致/);
+ const duplicate=structuredClone(returned);duplicate.movements.push({...returned.movements[1],id:'M-IN-AGAIN'});duplicate.inventory[0].qty=3;assert.throws(()=>V.validateState(duplicate,returned,()=>null),/已归还/);
+});

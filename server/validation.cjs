@@ -166,6 +166,13 @@ function validateState(next,old,files){
     expected.set(m.itemId,qty);
   }
   const newMovements=next.movements.filter(m=>!old.movements.some(prior=>prior.id===m.id));
+  for(const m of newMovements.filter(m=>['借出','归还'].includes(m.type))){
+    const loan=next.loans.find(l=>l.id===m.loanId&&!l.deletedAt);assert(loan,'借还流水必须关联有效借还单号');
+    assert(m.quantity===loan.quantity,'借还流水数量与借还单不一致');
+    if(m.type==='借出')assert(!old.loans.some(l=>l.id===loan.id)&&m.itemId===loan.itemId&&m.date===loan.date&&m.id===loan.movementId,'借出流水与借还单不对应');
+    else {assert(old.loans.some(l=>l.id===loan.id&&!l.returnedDate)&&loan.returnedDate===m.date&&m.itemId===loan.returnItemId,'归还流水与借还单不对应或已归还');const source=next.inventory.find(i=>i.id===loan.itemId),target=next.inventory.find(i=>i.id===m.itemId);assert(source&&target&&['group','name','variant','kind','unit'].every(key=>(source[key]||'')===(target[key]||'')),'归还器材与借出来源不一致');}
+    assert(next.movements.filter(row=>row.loanId===loan.id&&row.type===m.type).length===1,'同一借还单不能重复借出或归还');
+  }
   for(const s of active('sales')){
     const priorSale=old.sales.find(prior=>prior.id===s.id);
     assert(Array.isArray(s.lines)&&s.lines.length>0&&s.lines.length<=20,'订单商品信息无效');

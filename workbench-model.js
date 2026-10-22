@@ -190,3 +190,5 @@ function wbSaveCatProfile(values,id){
  }
  return true;
 }
+
+function wbSaveCatPhotoInfo(id,asset,title,note){const cat=find('cats',id),photo=cat?.photos?.find(p=>p.id===asset);title=String(title||'').trim();note=String(note||'').trim();if(!cat||cat.deletedAt||!photo)return wbError('照片已不可用');if(!title||title.length>80||note.length>500)return wbError('照片名称需为1到80字，备注最多500字');const before=clone(cat);Object.assign(photo,{title,note});if(cat.avatar?.id===asset)Object.assign(cat.avatar,{title,note});persist('照片信息已保存',{type:'cats',recordId:id,action:'修改照片信息',before,after:clone(cat)});return true;}

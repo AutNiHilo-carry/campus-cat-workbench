@@ -455,3 +455,19 @@ console.log('PASS: preoperative surgery stages, profile-only/managed records, me
 run("wbBusinessTab.sterilization='待绝育'");view('sterilization');assert.match(el('#wb-list').innerHTML,/<th>目击照片<\/th>/);
 const identityEditor=call('wbCatEditFields',{id:'C-EDITOR',name:'编辑布局猫',sex:'母',age:'1岁',place:'校园'},true);assert.match(identityEditor,/cat-edit-card/);assert.match(identityEditor,/data-wb-enhanced="native"/);assert.match(identityEditor,/name="archiveStatus"/);assert.match(identityEditor,/name="description"/);
 console.log('PASS: sighting photo labels and identity-card profile editor with native status selection.');
+
+run("data.cats.push({id:'C-MEDIA-UI',name:'相册布局猫',sex:'母',age:'1岁',photos:[{id:'P-MEDIA-UI',name:'original.png',title:'草地上的猫',note:'观察备注 <safe>'}]})");
+const mediaCard=call('wbCatIdentityCard',run("find('cats','C-MEDIA-UI')"));assert.match(mediaCard,/cat-identity-card/);assert.match(mediaCard,/绝育情况/);assert.doesNotMatch(mediaCard,/更换头像/);
+const mediaAlbum=call('wbCatAlbumUI',run("find('cats','C-MEDIA-UI')"));assert.match(mediaAlbum,/photo-trash/);assert.match(mediaAlbum,/wb-cat-photo-remove/);assert.doesNotMatch(mediaAlbum,/type="file"/);assert.match(mediaAlbum,/草地上的猫/);
+call('wbCatPhotoDetail','C-MEDIA-UI','P-MEDIA-UI');assert.match(el('#fields').innerHTML,/观察备注 &lt;safe&gt;/);assert.doesNotMatch(el('#fields').innerHTML,/textarea/);
+assert.equal(call('wbSaveCatPhotoInfo','C-MEDIA-UI','P-MEDIA-UI','','备注'),false);assert.equal(call('wbSaveCatPhotoInfo','C-MEDIA-UI','P-MEDIA-UI','新名称','新备注'),true);
+call('wbConfirmCatPhotoRemove','C-MEDIA-UI','P-MEDIA-UI');eq("find('cats','C-MEDIA-UI').photos.length",1);assert.equal(el('#modal-title').textContent,'确定删除这张照片？');call('submitHandler',{});eq("find('cats','C-MEDIA-UI').photos.length",0);eq("find('cats','C-MEDIA-UI').deletedFiles[0].file.title",'新名称');
+call('wbPrepareCatUpload',{dataset:{type:'cats',id:'C-MEDIA-UI',wbUpload:'photos'},files:[{name:'source.png'}]});assert.match(el('#fields').innerHTML,/photoTitle_0/);assert.equal(call('submitHandler',{photoTitle_0:'',photoNote_0:''}),false);
+assert.doesNotMatch(call('wbCatDescription',{id:'C-MEDIA-UI',description:'说明'}),/data-action/);
+console.log('PASS: identity details, editor-only media controls, photo names/notes, safe confirmation and read-only large previews.');
+
+assert.match(call('wbMovementLoanLink',{type:'归还',loanId:run('data.loans[0].id')}),new RegExp(run('data.loans[0].id')));assert.match(call('wbMovementLoanLink',{type:'借出',loanId:'MISSING'}),/关联待核对/);call('wbLoanDetail',run('data.loans[0].id'));assert.match(el('#fields').innerHTML,/借还单号/);assert.match(el('#fields').innerHTML,/对应借还流水/);
+run("inventoryGroup='日常';inventoryView='movements'");view('inventory');assert.match(el('#wb-list').innerHTML,/<th>流水编号<\/th>/);assert.match(el('#wb-list').innerHTML,/<th>借还单号<\/th>/);
+console.log('PASS: stable movement and loan numbers with linked borrowing/return details.');
+
+run("window.DanmiaoBackend={user:{role:'viewer'}}");assert.doesNotMatch(call('wbCatIdentityCard',run("find('cats','C-MEDIA-UI')")),/data-action="wb-edit"/);assert.doesNotMatch(call('wbCatPhotoFigure',run("find('cats','C-MEDIA-UI')"),{id:'P-READ',name:'read.png',title:'只读照片'},''),/photo-trash/);run('delete window.DanmiaoBackend');
