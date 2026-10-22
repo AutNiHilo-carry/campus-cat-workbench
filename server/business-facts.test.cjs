@@ -38,3 +38,12 @@ test('discovery place defaults once and cannot be overwritten through the API',(
  const moved=V.applyChanges(first,[{collection:'cats',id:cat.id,before:first.cats[0],after:{...first.cats[0],place:'当前医院'}}],user).next;assert.equal(moved.cats[0].discoveryPlace,'初始花园');
  const snapshot=structuredClone(moved);domain.normalize(moved);assert.equal(moved.cats[0].discoveryPlace,snapshot.cats[0].discoveryPlace);
 });
+test('API uses sighting defaults and release locations without changing discovery place',()=>{
+ const D=require('../shared-domain.js');let state=D.normalize({...Object.fromEntries(require('./store.cjs').COLLECTIONS.map(c=>[c,[]])),audit:[],activities:[],schemaVersion:4,cats:[{id:'C-SIGHT',name:'目击猫',place:'当前医院',discoveryPlace:'初始地点'}]});const user={id:'M-SIGHT',name:'测试',role:'member'};
+ function save(collection,values){const before=structuredClone(state[collection].find(r=>r.id===values.id)||null),after={...before,...values},result=V.applyChanges(state,[{collection,id:after.id,before,after}],user).next;V.validateState(result,state,()=>null);state=D.normalize(result);}
+ save('rescue',{id:'R-SIGHT',catId:'C-SIGHT',cat:'目击猫',status:'待救助',issue:'观察'});assert.equal(state.rescue[0].place,'初始地点');assert.equal(state.cats[0].place,'初始地点');
+ save('rescue',{id:'R-SIGHT',place:'最新目击点'});save('sterilization',{id:'S-SIGHT',catId:'C-SIGHT',cat:'目击猫',status:'待绝育',cost:0});assert.equal(state.sterilization[0].place,'最新目击点');
+ save('rescue',{id:'R-SIGHT',status:'就医中',hospital:'实际医院',medicalDate:D.day()});assert.equal(state.cats[0].place,'实际医院');
+ assert.throws(()=>save('rescue',{id:'R-SIGHT',status:'已结束',outcome:'放归',completedDate:D.day()}),/放归/);
+ save('rescue',{id:'R-SIGHT',status:'已结束',outcome:'放归',completedDate:D.day(),releasePlace:'实际放归点'});assert.equal(state.cats[0].place,'实际放归点');assert.equal(state.cats[0].discoveryPlace,'初始地点');
+});

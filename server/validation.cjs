@@ -87,6 +87,7 @@ function applyChanges(state,changes,user){
       continue;
     }
     const value=structuredClone(after);
+    if(!current&&['rescue','sterilization'].includes(c)&&!value.place?.trim()){const cat=next.cats.find(cat=>value.catId?cat.id===value.catId:cat.name===value.cat);value.place=domain.defaultSightingPlace(next,cat);}
     if(c==='cats'&&!current){value.discoveryPlace??=value.place||'';if(!value.place)value.place=value.discoveryPlace;}
     if(c==='adoption'&&!agreementAccess(user)){assert(!(value.agreements||[]).length,'协议仅限管理员及领养负责人管理',403);value.agreements=current?.agreements||[];value.deletedFiles=[...(value.deletedFiles||[]).filter(e=>e.key!=='agreements'),...(current?.deletedFiles||[]).filter(e=>e.key==='agreements')];}
     value.createdBy=current?.createdBy||user.id;value.createdAt=current?.createdAt||new Date().toISOString();value.updatedBy=user.id;value.updatedAt=new Date().toISOString();
@@ -124,10 +125,11 @@ function validateState(next,old,files){
     if(c==='sterilization'&&r.status==='住院中')assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital)&&date(r.surgeryDate),'住院中必须填写医院和手术日期');
     if(c==='sterilization'&&r.status==='已放归')assert(date(r.releaseDate)&&r.releasePlace?.trim()&&(!r.surgeryDate||r.releaseDate>=r.surgeryDate),'放归信息不完整');
     if(c==='rescue'&&r.status==='就医中'&&(prior?.status!=='就医中'||prior?.hospital!==r.hospital))assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'就医中必须填写医院名称');
-    if(c==='rescue')assert(r.place?.trim()&&r.issue?.trim(),'救助需填写最近目击地点和发现情况');
+    if(c==='rescue')assert((r.status!=='待救助'||r.place?.trim())&&r.issue?.trim(),'待救助需填写最近目击地点，救助记录需填写发现情况');
     if(c==='foster'&&r.situation!==undefined)assert(typeof r.situation==='string'&&r.situation.length<=1000,'寄养情况最多1000字');
     if(c==='foster'&&r.status==='寄养中')assert(r.place?.trim()&&r.caregiver?.trim(),'寄养中需填写地点和照护人');
     if(c==='foster'&&r.status==='寄养中')assert(date(r.date)&&r.date<=future,'入住日期不能晚于今天');
+    if(['rescue','foster'].includes(c)&&r.status==='已结束'&&['放归','已放归'].includes(r.outcome)&&(!prior||prior.status!=='已结束'||prior.outcome!==r.outcome||prior.releasePlace!==r.releasePlace))assert(r.releasePlace?.trim()&&date(r.releaseDate||r.completedDate),'放归时需填写实际放归地点和日期');
     if(r.status==='已结束'&&prior?.status!=='已结束'){
       if(c==='rescue')assert(['去喵星','死亡','放归','转寄养'].includes(r.outcome),'结束救助请选择后续结果');
       if(c==='foster')assert(['已领养','已放归'].includes(r.outcome),'结束寄养请选择去向');

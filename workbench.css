@@ -84,3 +84,9 @@ summary.experience-card-head{cursor:pointer;list-style:none}summary.experience-c
 .profile-fact-edit{display:block;text-align:left;border:1px solid transparent;border-radius:6px;padding:2px 6px;margin:-3px -7px;background:transparent;color:inherit;font:inherit;line-height:inherit;cursor:pointer;white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%}.profile-fact-edit:hover,.profile-fact-edit:focus-visible{background:#eaf3ef;border-color:#b8d6c8;outline:none}
 
 .sterilization-cat-facts{font-size:14px;line-height:1.8;color:#5b786e;margin-top:9px;white-space:normal}
+
+.cat-profile-name{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px}.cat-profile-name h3{margin:0}.cat-profile-statuses{display:flex;flex-wrap:wrap;gap:4px 7px;align-items:center}.cat-paw-badge{position:relative;display:inline-flex;width:86px;height:56px;align-items:flex-end;justify-content:center;padding-bottom:11px;box-sizing:border-box;flex:none;color:#427866}.cat-paw-badge svg{position:absolute;inset:0;width:100%;height:100%;fill:#e3f1e9;stroke:#c2dfce;stroke-width:1}.cat-paw-badge>span{position:relative;font-size:12px;font-weight:600;line-height:1;white-space:nowrap}.cat-paw-badge.is-hospital{color:#377a9c}.cat-paw-badge.is-hospital svg{fill:#e4f2fa;stroke:#c4dfef}.cat-paw-badge.is-waiting{color:#9c6d62}.cat-paw-badge.is-waiting svg{fill:#fbebe4;stroke:#efd5c7}.cat-paw-badge.is-memorial{color:#77738e}.cat-paw-badge.is-memorial svg{fill:#eeedf5;stroke:#d8d4e7}@media(max-width:640px){.cat-profile-name{gap:7px}.cat-profile-statuses{gap:3px}.cat-paw-badge{width:76px;height:50px;padding-bottom:10px}.cat-paw-badge>span{font-size:11px}}
+
+.cat-profile-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;flex:none}@media(max-width:640px){.cat-detail-head{flex-wrap:wrap}.cat-profile-actions{flex-basis:100%;justify-content:flex-end}}
+
+@media(max-width:720px){td[data-label="最近目击地点"]:has(.sighting-not-applicable){display:none}}

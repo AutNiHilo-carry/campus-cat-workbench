@@ -91,15 +91,23 @@ function wbFinance(store,selectedMonth){
  const bills=wbActive(store,'finance'),confirmed=bills.filter(b=>b.status==='已入账'||b.status==='已报销'||b.status==='已结清'),sum=xs=>xs.reduce((a,b)=>a+b.amountCents,0);
  return {income:sum(confirmed.filter(b=>b.flow==='收入'&&b.date.startsWith(selectedMonth))),expense:sum(bills.filter(b=>b.flow!=='收入'&&b.status!=='未通过'&&b.date.startsWith(selectedMonth))),unconfirmed:sum(bills.filter(b=>b.flow==='收入'&&b.status==='待确认'&&b.date.startsWith(selectedMonth))),pending:sum(bills.filter(b=>b.flow==='个人垫付'&&['待审核','审核通过'].includes(b.status))),balance:sum(confirmed.filter(b=>b.flow==='收入'))-sum(confirmed.filter(b=>b.flow==='协会支出'||b.flow==='协会欠款'&&b.status==='已结清'||b.flow==='个人垫付'&&b.status==='已报销'))};
 }
+// Sightings come from rescue/sterilization records, never hospital or foster addresses.
+function defaultSightingPlace(store,cat){
+ if(!cat)return '';
+ const candidates=['rescue','sterilization'].flatMap(type=>wbActive(store,type).filter(r=>r.place?.trim()&&(r.catId&&cat.id?r.catId===cat.id:r.cat===cat.name)).map(r=>({place:r.place,time:r.sightingUpdatedAt||r.createdAt||(r.date&&r.date<=day()?r.date:''),id:r.id})));
+ candidates.sort((a,b)=>String(b.time||'').localeCompare(String(a.time||''))||String(b.id).localeCompare(String(a.id)));
+ return candidates[0]?.place||cat.discoveryPlace||'';
+}
 // Apply a saved business change once; unrelated edits must not replay old moves.
 function syncBusinessChange(store,type,before,after){
  if(!after||after.deletedAt||before?.deletedAt)return;
+ if(['rescue','sterilization'].includes(type)&&['待救助','待绝育'].includes(after.status)&&after.place?.trim()&&(!before||before.place!==after.place))after.sightingUpdatedAt=new Date().toISOString();
  if(type==='foster'&&after.status!=='待安置'&&after.segments?.length&&after.situation!==before?.situation){after.segments.at(-1).situation=after.situation||'';}
  const destination=r=>{
   if(!r)return '';
-  if(type==='rescue')return r.status==='就医中'?r.hospital:r.status==='待救助'||r.status==='已结束'&&r.outcome==='放归'?r.place:'';
+  if(type==='rescue')return r.status==='就医中'?r.hospital:r.status==='待救助'?r.place:r.status==='已结束'&&r.outcome==='放归'?r.releasePlace:'';
   if(type==='sterilization')return r.status==='住院中'?r.hospital:r.status==='已放归'?r.releasePlace:r.status==='待绝育'?r.place:'';
-  if(type==='foster')return r.status==='寄养中'?r.place:'';
+  if(type==='foster')return r.status==='寄养中'?r.place:r.status==='已结束'&&r.outcome==='已放归'?r.releasePlace:'';
   return '';
  };
  const place=String(destination(after)||'').trim();
@@ -155,5 +163,5 @@ function migrateData(input,{defaults={},extraInventory=[],asOf=day()}={}){
  return input;
 }
 
-return {syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
+return {defaultSightingPlace,syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
 });

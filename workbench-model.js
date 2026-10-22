@@ -11,11 +11,12 @@ function wbBusinessSave(type,values,id){
  if(v.cat&&!exact&&data.cats.some(c=>c.deletedAt&&(wbCatNameKey(c.name)===wbCatNameKey(v.cat)||(c.aliases||[]).some(a=>wbCatNameKey(a)===wbCatNameKey(v.cat)))))return wbError('这只猫的档案在回收站，请先恢复原档案');delete v.identityDecision;
  if(type==='adoption')v.status=({'待领养':'无领养人','沟通中':'有意向领养人','试养中':'有意向领养人','未通过':'无领养人'})[v.status]||v.status;
  if(!wbStatuses[type]?.includes(v.status)&&!(type==='adoption'&&v.status==='已退养'))return wbError('请选择有效状态');
+ if(['rescue','sterilization'].includes(type)){v.place=String(values.place??old?.place??'').trim();if(!old&&!v.place)v.place=DanmiaoDomain.defaultSightingPlace(data,exact);}
  if(type==='rescue'){
   if(v.outcome==='死亡')v.outcome='去喵星';
   v.hospital=String(values.hospital??old?.hospital??'').trim();
   if(v.status==='就医中'&&(!old||old.status!=='就医中'||Object.hasOwn(values,'hospital'))&&(!v.hospital||['待确定','待补充','未填写'].includes(v.hospital)))return wbError('请填写医院名称');
-  if(!v.place?.trim()||!v.issue?.trim())return wbError('请填写最近目击地点和情况，猫咪档案可以后补');
+  if(v.status==='待救助'&&!v.place?.trim()||!v.issue?.trim())return wbError('请填写最近目击地点和情况，猫咪档案可以后补');
   if(v.status==='就医中')v.medicalDate=old?.medicalDate||(old?.status==='就医中'&&wbValidDate(old.date)&&old.date<=today?old.date:today);
   else if(old?.medicalDate)v.medicalDate=old.medicalDate;
   if(v.status==='已结束'&&!['去喵星','放归','转寄养'].includes(v.outcome))return wbError('结束救助时请选择后续结果');
@@ -56,6 +57,11 @@ function wbBusinessSave(type,values,id){
   v.agreements=old?.agreements||[];v.date=v.adoptDate||v.date||today;
  }
  if(v.completedDate&&(!wbValidDate(v.completedDate)||v.completedDate>today))return wbError('完成日期不能晚于今天');if(v.status==='已结束'&&v.completedDate){const start=type==='rescue'?v.medicalDate||old?.date||v.date:v.date||old?.date;if(wbValidDate(start)&&v.completedDate<start)return wbError('结束日期不能早于开始或就医日期');}
+ if(['rescue','foster'].includes(type)&&v.status==='已结束'&&['放归','已放归'].includes(v.outcome)){
+  v.releasePlace=String(values.releasePlace??old?.releasePlace??'').trim();v.releaseDate=v.completedDate;
+  const releasing=!old||old.status!=='已结束'||old.outcome!==v.outcome;
+  if((releasing||Object.hasOwn(values,'releasePlace'))&&!v.releasePlace)return wbError('请填写实际放归地点');
+ }
  const linkedCat=v.cat?wbEnsureBusinessCat(v):null;if(linkedCat)v.catId=linkedCat.id;
  if(type==='adoption'){const cat=active('cats').find(c=>c.name===v.cat);if(cat)for(const k of ['sex','age','coatType','neuterStatus','medicalHistory'])if(Object.hasOwn(values,k))cat[k]=v[k];}
  v.photos=old?.photos||[];writeRecord(type,v,id);return true;
@@ -144,7 +150,7 @@ function wbSaveBusinessFacts(type,id,mode,values){
  const r=find(type,id);if(!r||r.deletedAt)return wbError('记录已删除或不可用，请刷新列表');
  if(window.DanmiaoBackend?.user?.role==='viewer')return wbError('只读账号不能修改数据');
  if(type==='sterilization'&&mode==='cost')return wbBusinessSave(type,{...r,cost:values.cost},id);
- if(type==='sterilization'&&mode==='area')return wbBusinessSave(type,{...r,place:String(values.place||'').trim()},id);
+ if(['rescue','sterilization'].includes(type)&&mode==='area'){if(!['待救助','待绝育'].includes(r.status))return wbError('仅待救助、待绝育记录可修改最近目击地点');return wbBusinessSave(type,{...r,place:String(values.place||'').trim()},id);}
  if(type==='sterilization'&&mode==='capturer')return wbBusinessSave(type,{...r,capturer:String(values.capturer||'').trim()},id);
  if(type==='sterilization'&&mode==='medical'){
   if(r.status==='待绝育')return wbError('请通过更新状态登记医院与手术日期');

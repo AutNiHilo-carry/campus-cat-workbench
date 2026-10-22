@@ -236,7 +236,7 @@ assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'校
 run("const medicalId=data.rescue[0].id;wbSync(data)");
 eq("data.monthly.filter(w=>w.sourceType==='rescue'&&w.sourceId===medicalId).length",1);
 eq("data.monthly.find(w=>w.sourceType==='rescue'&&w.sourceId===medicalId).date",day);
-assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'校门',issue:'需要检查',status:'已结束',outcome:'放归',completedDate:day},run('medicalId')),true);
+assert.equal(call('wbBusinessSave','rescue',{cat:'就医归档验证',place:'校门',issue:'需要检查',status:'已结束',outcome:'放归',releasePlace:'实际放归地点',completedDate:day},run('medicalId')),true);
 eq("data.monthly.filter(w=>w.sourceType==='rescue'&&w.sourceId===medicalId).length",1);
 eq("wbStatuses.rescue.includes('住院中')",false);
 run('const beforeHospitalValidation=data.sterilization.length');
@@ -412,3 +412,23 @@ assert.equal(call('wbBusinessSave','rescue',{cat:'自动发现地点猫',place:'
 run('delete wbFindCat("自动发现地点猫").discoveryPlace');
 assert.equal(call('wbSaveCatOverview',run('wbFindCat("自动发现地点猫").id'),'discoveryPlace','旧档案补填点'),true);eq('wbFindCat("自动发现地点猫").place','首次发现点');
 console.log('PASS: fixed discovery place, initial current-place default, later moves and one-time legacy filling.');
+// Sightings default across the two relevant modules, not from the current hospital.
+const sightings={cats:[],rescue:[{id:'R-OLD',catId:'C-SIGHT',cat:'目击猫',place:'旧目击点',sightingUpdatedAt:'2026-10-20T00:00:00Z',status:'就医中',hospital:'医院'}],sterilization:[{id:'S-NEW',catId:'C-SIGHT',cat:'目击猫',place:'新目击点',sightingUpdatedAt:'2026-10-21T00:00:00Z',status:'待绝育'}]};
+assert.equal(call('DanmiaoDomain.defaultSightingPlace',sightings,{id:'C-SIGHT',name:'目击猫',discoveryPlace:'最初地点',place:'当前医院'}),'新目击点');
+assert.equal(call('DanmiaoDomain.defaultSightingPlace',{rescue:[],sterilization:[]},{id:'C-SIGHT',name:'目击猫',discoveryPlace:'最初地点',place:'当前医院'}),'最初地点');
+assert.equal(call('DanmiaoDomain.defaultSightingPlace',{rescue:[],sterilization:[]},{id:'C-SIGHT',name:'目击猫',place:'当前医院'}),'');
+view('rescue');run("wbBusinessTab.rescue='就医中';wbRefresh()");assert.doesNotMatch(el('#wb-list').innerHTML,/<th>最近目击地点<\/th>/);
+run("wbBusinessTab.rescue='已结束';wbRefresh()");assert.doesNotMatch(el('#wb-list').innerHTML,/<th>最近目击地点<\/th>/);
+run("wbBusinessTab.rescue='待救助';wbRefresh()");assert.match(el('#wb-list').innerHTML,/aria-label="修改最近目击地点"/);
+assert.equal(call('wbSaveBusinessFacts','rescue',run('medicalId'),'area',{place:'禁止改旧地点'}),false);
+assert.equal(call('wbBusinessSave','rescue',{cat:'放归同步猫',place:'最近目击点',issue:'观察',status:'待救助'}),true);run('const sightRescue=data.rescue[0].id');
+assert.equal(run("wbBusinessSave('rescue',{...find('rescue',sightRescue),status:'已结束',outcome:'放归',completedDate:today},sightRescue)"),false);
+assert.equal(run("wbBusinessSave('rescue',{...find('rescue',sightRescue),status:'已结束',outcome:'放归',completedDate:today,releasePlace:'实际放归点'},sightRescue)"),true);eq('wbFindCat("放归同步猫").place','实际放归点');
+assert.equal(call('wbBusinessSave','foster',{cat:'放归同步猫',place:'寄养点',caregiver:'照护人',status:'寄养中',date:day}),true);run('const sightFoster=data.foster[0].id');
+assert.equal(run("wbBusinessSave('foster',{...find('foster',sightFoster),status:'已结束',outcome:'已放归',completedDate:today,releasePlace:'第二放归点'},sightFoster)"),true);eq('wbFindCat("放归同步猫").place','第二放归点');
+// Profile badges derive from live records and memorial status takes precedence.
+run("data.adoption.push({id:'BADGE-A',catId:discoveryCat,cat:'发现地点测试猫',status:'无领养人'});data.foster.push({id:'BADGE-F',catId:discoveryCat,cat:'发现地点测试猫',status:'寄养中',place:'寄养点',caregiver:'照护人',date:today,segments:[]});data.rescue.push({id:'BADGE-R',catId:discoveryCat,cat:'发现地点测试猫',status:'就医中',hospital:'医院',issue:'观察',medicalDate:today})");
+eq('wbCatStatusLabels(find("cats",discoveryCat)).join(",")','待领养,住院中,寄养中');
+run('find("cats",discoveryCat).archiveStatus="已去喵星"');eq('wbCatStatusLabels(find("cats",discoveryCat)).join(",")','已去喵星');
+call('wbCatProfile',run('find("cats",discoveryCat)'));assert.match(el('#fields').innerHTML,/cat-profile-actions/);assert.equal((el('#fields').innerHTML.match(/>编辑档案</g)||[]).length,1);
+console.log('PASS: sighting defaults/visibility, real release locations, derived paw badges and top profile actions.');
