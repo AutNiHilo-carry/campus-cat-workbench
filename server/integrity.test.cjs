@@ -25,6 +25,18 @@ test('unfinished cats and connected histories cannot be deleted; archive hides c
 test('a second active foster is rejected atomically, including two starts in one request',()=>{
  const s=commit(fresh(),'foster',foster());assert.throws(()=>commit(s,'foster',foster('F-II')),/已有进行中的寄养/);assert.equal(s.foster.length,1);assert.throws(()=>batch(fresh(),[['foster',foster()],['foster',foster('F-II')]]),/已有进行中的寄养/);
 });
+test('a cat cannot have duplicate active admissions or concurrent different hospitals',()=>{
+ let s=commit(fresh(),'sterilization',{...cat,id:'S-I',status:'住院中',hospital:'医院甲',date:earlier,admissionDate:earlier});const revision=structuredClone(s);
+ assert.throws(()=>commit(s,'sterilization',{...cat,id:'S-II',status:'住院中',hospital:'医院甲',date:today}),/已有绝育住院记录/);assert.throws(()=>commit(s,'sterilization',{...cat,id:'S-II',status:'住院中',hospital:'医院乙',date:today}),/已有绝育住院记录/);assert.deepEqual(s,revision);
+ assert.throws(()=>commit(s,'rescue',{...cat,id:'R-I',status:'就医中',hospital:'医院乙',medicalDate:today,date:today,issue:'受伤'}),/不能同时住在不同医院/);
+ s=commit(s,'rescue',{...cat,id:'R-I',status:'就医中',hospital:'医院甲',medicalDate:today,date:today,issue:'检查'});assert.equal(s.rescue[0].hospital,s.sterilization[0].hospital);assert.throws(()=>commit(s,'rescue',{id:'R-I',hospital:'医院乙'}),/不能同时住在不同医院/);
+ assert.throws(()=>commit(s,'rescue',{...cat,id:'R-II',status:'就医中',hospital:'医院甲',medicalDate:today,date:today,issue:'重复'}),/已有进行中的救助就医记录/);
+ const gone=commit(fresh(),'cats',{id:cat.catId,archiveStatus:'去了喵星',memorialDate:today});for(const type of ['rescue','sterilization'])assert.throws(()=>commit(gone,type,{...cat,id:'NEW-'+type,status:type==='rescue'?'待救助':'待绝育',place:'地点',issue:'检查',date:today}),/不能开启新业务/);
+});
+test('unpaid association debt allows no handler but settlement records the actual payer',()=>{
+ let s=commit(fresh(),'finance',{id:'DEBT-I',title:'欠医院检查费',flow:'协会欠款',status:'待付款',date:earlier,amountCents:10000,creditor:'医院',owner:'',receipt:'',note:''});assert.equal(s.finance[0].owner,'');assert.equal(D.finance(s,today.slice(0,7)).balance,0);
+ assert.throws(()=>commit(s,'finance',{id:'DEBT-I',status:'已结清',paidDate:today}),/实际付款经办人/);s=commit(s,'finance',{id:'DEBT-I',status:'已结清',paidDate:today,owner:'实际付款人'});assert.equal(s.finance[0].owner,'实际付款人');assert.equal(D.finance(s,today.slice(0,7)).balance,-10000);
+});
 test('identity correction requires the whole explicit linkage graph, preserving source history',()=>{
  let s=commit(fresh(),'rescue',{...cat,id:'R-LINK-I',status:'已结束',outcome:'转寄养',completedDate:yesterday,date:earlier,issue:'观察'});const f=s.foster[0];assert.throws(()=>commit(s,'rescue',{id:'R-LINK-I',cat:'另一只猫',catId:'C-II'}),/关联身份更正/);
  const change={cat:'另一只猫',catId:'C-II',identityCorrectionId:'CORRECT-I',identityCorrectionReason:'原识别错误',locationAction:'history'};s=batch(s,[['rescue',{id:'R-LINK-I',...change}],['foster',{id:f.id,...change}]]);assert.equal(s.rescue[0].catId,'C-II');assert.equal(s.foster[0].catId,'C-II');assert.equal(s.foster[0].sourceRescueId,'R-LINK-I');

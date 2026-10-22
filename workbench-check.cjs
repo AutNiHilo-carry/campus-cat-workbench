@@ -1,6 +1,6 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const elements=new Map(),handlers={},storage=new Map();
-function el(key){if(!elements.has(key))elements.set(key,{innerHTML:'',textContent:'',value:'',hidden:false,dataset:{},classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){}});return elements.get(key)}
+function el(key){if(!elements.has(key))elements.set(key,{innerHTML:'',textContent:'',value:'',hidden:false,querySelector(){return null;},dataset:{},classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){}});return elements.get(key)}
 const context=vm.createContext({document:{querySelector:el,querySelectorAll:()=>[],addEventListener(n,fn){(handlers[n]||=[]).push(fn)}},window:{addEventListener(){}},location:{hash:''},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},structuredClone,setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},console});
 const run=code=>vm.runInContext(code,context),eq=(code,value)=>assert.equal(run(code),value,code),call=(name,...args)=>run(name+'('+args.map(v=>JSON.stringify(v)).join(',')+')');
 for(const file of ['shared-domain.js','vendor/pinyin-pro-3.29.5.js','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','outreach.js','workspace.js'])run(fs.readFileSync(__dirname+'/'+file,'utf8'),{filename:file});
@@ -489,3 +489,10 @@ assert.equal(call('wbBusinessSave','foster',{...fosterIntegrity,status:'已结�
 assert.equal(call('wbArchiveCat',run('integrityCat'),true,'保存已结束历史'),true);eq("DanmiaoDomain.catMatchesTab(data,find('cats',integrityCat),'全部')",false);assert.equal(call('wbArchiveCat',run('integrityCat'),false),true);
 assert.equal(call('wbBusinessSave','foster',{cat:'待安置日期测试猫',status:'待安置',date:run('integrityEarly'),note:'初次登记'}),true);run('const integrityWaiting=data.foster[0].id');assert.equal(call('wbBusinessSave','foster',{...run("find('foster',integrityWaiting)"),note:'仅补充备注'},run('integrityWaiting')),true);eq("find('foster',integrityWaiting).date",run('integrityEarly'));
 console.log('PASS: memorial wording/migration, foster death outcome/archive synchronization and correction, one active foster, stable waiting dates and archive visibility.');
+
+// Optional business fields stay optional, while actual financial actions retain a payer.
+assert.equal(call('wbBusinessSave','rescue',{cat:'',place:'空负责人验证地点',issue:'现场观察',status:'待救助',owner:'',nextStep:''}),true);eq('data.rescue[0].owner','');assert.doesNotMatch(el('#toast').textContent,/undefined/);
+run("data.cats.push({id:'C-GONE-CHOICE',name:'不可新建业务猫',archiveStatus:'去了喵星',memorialDate:today,photos:[]})");
+for(const type of ['rescue','foster','adoption','sterilization']){const fields=call('wbBusinessCatField',type,{});assert.doesNotMatch(fields,/不可新建业务猫/);call('wbEditBusiness',type);const owner=el('#fields').innerHTML.match(/<label>负责人（可留空）[\s\S]*?<\/label>/);if(owner)assert.doesNotMatch(owner[0],/ required/);}
+call('wbEditFinance');assert.equal(call('submitHandler',{title:'未付款验证',flow:'协会欠款',creditor:'测试医院',date:day,amount:'10',owner:'',receipt:'',note:'',link:''}),true);run('const optionalDebt=data.finance[0].id');eq('find("finance",optionalDebt).owner','');eq('find("finance",optionalDebt).status','待付款');assert.equal(call('wbSettleDebt',run('optionalDebt'),day,''),false);assert.equal(call('wbSettleDebt',run('optionalDebt'),day,'实际付款人'),true);
+console.log('PASS: blank optional responsibility fields, memorial cat picker exclusion and unpaid debts versus actual payment handlers.');

@@ -263,6 +263,7 @@ function memorialDateError(store,cat,asOf=day()){
  return actual.some(d=>wbValidDate(d)&&d<=asOf&&d>date)?'去喵星日期早于已登记的实际业务或回访日期，请先核对相关记录':'';
 }
 function financeChangeError(store,r,before,asOf=day()){
+ if(r.flow==='协会欠款'&&r.status==='已结清'&&before?.status!=='已结清'&&!String(r.owner||'').trim())return '请填写实际付款经办人';
  if(r.deletedAt)return deletionError(store,'finance',before||r);
  if(before?.reviewDate&&before.status!=='待审核'&&reviewKey(before)===reviewKey(r)&&r.reviewDate!==before.reviewDate)return '实际审核日期已归档，不能在付款或备注修改时改写';
  if(before&&reviewKey(before)===reviewKey(r)&&JSON.stringify(r.reviewHistory||[])!==JSON.stringify(before.reviewHistory||[]))return '历史审核记录不能覆盖或删除';
@@ -290,6 +291,11 @@ function businessIntegrityError(store,type,r,before,asOf=day()){
  if(r.neuterCorrection==='待确认'&&wbActive(store,'sterilization').some(x=>x.id!==r.id&&sameCat(x,r)&&['住院中','已放归'].includes(x.status)&&wbValidDate(x.surgeryDate)))return '还有其他已完成手术记录，请先核对，不能直接改为待确认';
  if(r.memorialCorrection==='撤销标记'&&['rescue','foster'].some(t=>wbActive(store,t).some(x=>(t!==type||x.id!==r.id)&&sameCat(x,r)&&x.status==='已结束'&&['去喵星','死亡'].includes(x.outcome))))return '还有其他去喵星依据，请先核对相关记录';
  const isNewStage=!before||before.deletedAt||identityChanged||before.status!==r.status;
+ const medicalState={rescue:'就医中',sterilization:'住院中'};if(medicalState[type]===r.status&&(isNewStage||before?.hospital!==r.hospital)){
+  const others=['rescue','sterilization'].flatMap(t=>wbActive(store,t).filter(x=>(t!==type||x.id!==r.id)&&sameCat(x,r)&&x.status===medicalState[t]).map(row=>({type:t,row})));
+  if(others.some(x=>x.type===type))return type==='sterilization'?'这只猫已有绝育住院记录，请在原记录中更改医院或处理出院':'这只猫已有进行中的救助就医记录，请更新原记录';
+  if(others.some(x=>String(x.row.hospital||'').trim()!==String(r.hospital||'').trim()))return '同一只猫不能同时住在不同医院；并行救助与绝育须使用同一家医院，请先核对原住院记录';
+ }
  if(cat?.archivedAt&&isNewStage&&({rescue:['待救助','就医中'],foster:['待安置','寄养中'],sterilization:['待绝育','住院中'],adoption:['无领养人','有意向领养人']}[type]||[]).includes(r.status))return '猫咪档案已归档，请先取消归档后再开启业务';
  if(type==='foster'&&r.status==='寄养中'&&isNewStage&&wbActive(store,'foster').some(f=>f.id!==r.id&&f.status==='寄养中'&&sameCat(f,r)))return '这只猫已有进行中的寄养，请在原记录办理交接';
  if(type==='adoption'&&r.status==='已领养'){

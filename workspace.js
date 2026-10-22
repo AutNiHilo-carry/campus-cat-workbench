@@ -6,7 +6,7 @@ const active=type=>(data[type]||[]).filter(r=>!r.deletedAt);
 const find=(type,id)=>(data[type]||[]).find(r=>r.id===id);
 const uid=prefix=>prefix+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 const money=cents=>'¥ '+(Number(cents||0)/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
-const optional=html=>html.replace(' required','');
+const optional=html=>html.replace(/\srequired(?:=(?:"[^"]*"|'[^']*'|[^\s>]+))?(?=[\s>])/g,'');
 const belongs=(row,month)=>String(row.date||'').startsWith(month);
 let data,persistence=true;
 try{data=window.DanmiaoBackend?clone(window.DanmiaoBackend.state):JSON.parse(localStorage.getItem('miaolin-demo-v1'))||clone(initial)}catch{data=clone(initial)}
@@ -14,7 +14,7 @@ data=wbSync(wbMigrate(migrateData(data)));
 let wbStockFingerprints=new Map(data.inventory.map(item=>[item.id,wbStockFingerprint(item)]));
 if(!window.DanmiaoBackend)try{localStorage.setItem('miaolin-demo-v1',JSON.stringify(data))}catch{persistence=false}
 let page='overview',query='',filter='',month=today.slice(0,7),inventoryGroup='日常',inventoryView='stock',historyView='audit',submitHandler=null;
-function toast(message){$('#toast').textContent=message;$('#toast').classList.add('visible');clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>$('#toast').classList.remove('visible'),3200)}
+function toast(message){const notice=$('#toast');notice.textContent=message;notice.classList.add('visible');clearTimeout(window.toastTimer);if(typeof notice.showPopover==='function'){notice.hidePopover();notice.showPopover();}else if(typeof document.body?.append==='function'){($('#dialog').open?$('#dialog'):document.body).append(notice);}window.toastTimer=setTimeout(()=>{notice.classList.remove('visible');notice.hidePopover?.();},5000)}
 function persist(message,audit){
  wbSync(data,today);
  const stockNow=new Date().toISOString();for(const item of data.inventory){const fingerprint=wbStockFingerprint(item);if(wbStockFingerprints.get(item.id)!==fingerprint)item.updatedAt=stockNow;wbStockFingerprints.set(item.id,fingerprint);}
@@ -35,7 +35,7 @@ function writeRecord(type,values,id){
  DanmiaoDomain.sync(scratch,today);let error=DanmiaoDomain.recordChangeError(scratch,type,scratch[type].find(r=>r.id===candidate.id),before,today);if(!error)for(const cat of scratch.cats.filter(c=>!c.deletedAt)){error=DanmiaoDomain.memorialDateError(scratch,cat,today);const priorCat=find('cats',cat.id);if(error&&priorCat&&DanmiaoDomain.memorialDateSignature(scratch,cat)===DanmiaoDomain.memorialDateSignature(data,priorCat))error='';if(error)break;}if(error)return wbError(error);
  if(row)Object.assign(row,candidate);else data[type].unshift(candidate);const after=row||data[type][0];
  if(type==='cats')DanmiaoDomain.noteCatChange(data,before,after);if(businessTypes.includes(type))DanmiaoDomain.syncBusinessChange(data,type,before,after);
- persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});return after;
+ persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name||after.place||'未建档事项'}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});return after;
 }
 
 function badge(text){return `<span class="badge ${/待|预约/.test(text)?'orange':/就医|试养|垫付/.test(text)?'purple':/逾期|不足/.test(text)?'red':''}">${esc(text)}</span>`}
