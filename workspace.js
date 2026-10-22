@@ -100,6 +100,8 @@ function readMoney(value){const s=String(value??'').trim();if(!/^\d{1,7}(\.\d{1,
 function catOptions(value,publicOption=false){const options=active('cats').map(c=>c.name);if(publicOption)options.unshift('公共事项');if(value&&!options.includes(value))options.push(value);return options}
 function checkFields(checklist){return `<fieldset class="checklist"><legend>寄养交接清单</legend>${Object.entries(checklistItems).map(([key,label])=>`<label><input type="checkbox" name="check_${key}" ${checklist?.[key]?'checked':''}>${label}</label>`).join('')}</fieldset>`}
 function edit(type,id){
+ if(type==='announcements')return wbAnnouncementForm(id);
+ if(['events','sponsors'].includes(type))return wbOutreachForm(type,id);
  if(businessTypes.includes(type))return wbEditBusiness(type,id);
  if(type==='monthly')return wbEditMonthly(id);
  if(type==='finance')return wbEditFinance(id);

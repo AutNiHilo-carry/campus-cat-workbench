@@ -2,6 +2,7 @@ const {assert,today,financeAccess,agreementAccess}=require('./validation.cjs');
 const domain=require('../shared-domain.js');
 function visibleRecord(collection,record,user){
  if(!record)return null;
+ if(collection==='announcements'&&user.role!=='admin'&&(record.status!=='已发布'||record.deletedAt))return null;
  if(collection==='finance'&&!financeAccess(user)&&!(record.flow==='个人垫付'&&record.createdBy===user.id))return null;
  const out=structuredClone(record);
  if(collection==='adoption'&&!agreementAccess(user)){out.agreements=[];out.deletedFiles=(out.deletedFiles||[]).filter(e=>e.key!=='agreements');}
@@ -16,6 +17,7 @@ function listRecords(store,collection,params,user){
  function add(sql,...values){where.push(sql);args.push(...values);}
  function exact(name,value){if(value)add(field(name)+'=?',value);}
  add(`coalesce(${field('deletedAt')},'')=''`);
+ if(collection==='announcements'&&user.role!=='admin')exact('status','已发布');
  if(collection==='finance'&&!financeAccess(user))add(`${field('flow')}='个人垫付' AND ${field('createdBy')}=?`,user.id);
  if(q){
   // Search the same projection returned to this actor, including counts and target pages.
@@ -27,6 +29,7 @@ function listRecords(store,collection,params,user){
  if(collection==='sales')exact('channel',get('channel'));
  if(collection==='movements'&&get('group'))add(`(${field('itemId')} IS NULL OR ${field('itemId')}='' OR EXISTS(SELECT 1 FROM records i WHERE i.collection='inventory' AND i.id=${field('itemId')} AND json_extract(i.body,'$.group')=?))`,get('group'));
  const tab=get('tab');
+ if(['events','sponsors'].includes(collection)){if(collection==='events'&&tab==='即将开展'){add(`${field('date')}>=? AND ${field('status')} NOT IN ('已完成','已取消')`,today());}else if(tab&&tab!=='全部'){assert(domain.outreachStates[collection].includes(tab),'无效活动或赞助状态');exact('status',tab);}if(get('eventId'))exact('eventId',get('eventId'));}
  if(collection==='cats'&&tab&&tab!=='全部'){assert(['已领养','已去喵星'].includes(tab),'无效档案分类');const state=store.load(),categories=new Map(state.cats.map(c=>[c.id,domain.catCategory(state,c)]));db.function('danmiao_cat_category',id=>categories.get(id)||'其他');add('danmiao_cat_category(r.id)=?',tab);}
  if(['rescue','foster'].includes(collection)&&tab&&tab!=='全部')exact('status',tab);
  if(collection==='sterilization'&&tab){exact('status',tab);if(tab==='已放归'&&month)add(`substr(${field('releaseDate')},1,7)=?`,month);}
@@ -47,7 +50,7 @@ function listRecords(store,collection,params,user){
  }
  if(collection==='monthly'){if(month)add(`substr(${field('date')},1,7)=?`,month);if(get('category')&&get('category')!=='全部')exact('category',get('category'));}
  const from=`json_each((SELECT value FROM meta WHERE key='order:${collection}')) o CROSS JOIN records r ON r.id=o.value AND r.collection='${collection}'`;
- const condition=where.map(x=>'('+x+')').join(' AND '),order=collection==='monthly'?`${field('date')} DESC,cast(o.key AS INTEGER),r.id`:'coalesce(cast(o.key AS INTEGER),r.rowid),r.id';
+ const condition=where.map(x=>'('+x+')').join(' AND '),order=collection==='events'?`${field('date')} ASC,cast(o.key AS INTEGER),r.id`:collection==='monthly'?`${field('date')} DESC,cast(o.key AS INTEGER),r.id`:'coalesce(cast(o.key AS INTEGER),r.rowid),r.id';
  const grouped=collection==='inventory'&&get('grouped')==='1';
  let total,recordTotal,rows,current,pages;
  const target=get('target');assert(target.length<=120,'目标记录编号无效');

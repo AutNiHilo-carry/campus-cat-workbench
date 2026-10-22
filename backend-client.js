@@ -1,6 +1,6 @@
 /* Local service adapter. The original index.html remains a standalone demo. */
 (async()=>{
- const collections=['cats','rescue','foster','adoption','sterilization','inventory','loans','movements','sales','finance','stories','monthly'];
+ const collections=['cats','rescue','foster','adoption','sterilization','inventory','loans','movements','sales','finance','stories','monthly','events','sponsors','announcements'];
  const roleNames={admin:'管理员',finance:'财务',adoption:'领养负责人',member:'成员',viewer:'只读'};
  const clone=value=>JSON.parse(JSON.stringify(value));
  let csrf='',user=null,appLoaded=false;
@@ -55,7 +55,7 @@
  };
  if(session.user){await start();return;}
  async function start(){
-  const result=await api('/api/state');Object.assign(backend,{state:result.state,lastSubmitted:clone(result.state),revision:result.revision,day:result.day,summaries:result.summaries});window.DanmiaoBackend=backend;
+  const result=await api('/api/state');Object.assign(backend,{user,state:result.state,lastSubmitted:clone(result.state),revision:result.revision,day:result.day,summaries:result.summaries});window.DanmiaoBackend=backend;
   const shell=new DOMParser().parseFromString(await(await fetch('/app-shell')).text(),'text/html');
   for(const link of shell.querySelectorAll('link[rel="stylesheet"]')){const stylesheet=document.createElement('link');stylesheet.rel='stylesheet';stylesheet.href=link.getAttribute('href');document.head.append(stylesheet);}
   const backendStyle=document.createElement('link');backendStyle.rel='stylesheet';backendStyle.href='backend.css';document.head.append(backendStyle);

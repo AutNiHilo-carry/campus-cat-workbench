@@ -14,13 +14,14 @@ function project(state,user){
   const out=structuredClone(state);
   if(!financeAccess(user))out.finance=out.finance.filter(r=>r.flow==='个人垫付'&&r.createdBy===user.id);
   if(!agreementAccess(user))for(const row of out.adoption){row.agreements=[];row.deletedFiles=(row.deletedFiles||[]).filter(e=>e.key!=='agreements');}
-  if(user.role!=='admin'){out.audit=[];out.activities=[];}
+  if(user.role!=='admin'){out.audit=[];out.activities=[];out.announcements=(out.announcements||[]).filter(r=>r.status==='已发布'&&!r.deletedAt);}
   return out;
 }
 function stripped(row){if(!row)return row;const copy=structuredClone(row);for(const key of ['createdBy','updatedBy','updatedAt','createdAt'])delete copy[key];return copy;}
 function same(a,b){return isDeepStrictEqual(stripped(a),stripped(b));}
 function authorizeChange(c,before,after,user,next){
   assert(user.role!=='viewer','只读账号不能修改数据',403);
+  if(c==='announcements')assert(user.role==='admin','仅管理员可管理公告',403);
   if(c==='finance'){
     const generated=after.saleId&&next.sales.find(s=>s.id===after.saleId);
     if(!financeAccess(user)){
@@ -130,6 +131,8 @@ function validateState(next,old,files){
     if(c==='adoption'&&['已领养','已退养'].includes(r.status))assert(date(r.adoptDate),'请填写实际领养日期');
     if(c==='adoption')for(const entry of r.followups||[])assert(entry.id&&date(entry.date)&&entry.date>=r.adoptDate&&entry.date<=future&&String(entry.note||'').length<=300&&(entry.photos||[]).length<=12,'回访日期、文字或照片数量无效');
   }
+  for(const type of ['events','sponsors'])for(const row of active(type)){const error=require('../shared-domain.js').outreachError(type,row,next,future);assert(!error,error);}
+  for(const row of active('announcements')){const error=require('../shared-domain.js').announcementError(row);assert(!error,error);}
   const adopted=new Set();for(const a of active('adoption').filter(a=>a.status==='已领养')){const key=a.catId||a.cat;assert(!adopted.has(key),'同一只猫只能有一段有效领养');adopted.add(key);}
   for(const i of next.inventory){const before=oldItem(i.id);if(!before)continue;const borrowing=next.loans.some(l=>!l.deletedAt&&!l.returnedDate&&l.itemId===i.id),occupied=next.sales.some(s=>!s.deletedAt&&!s.deliveredDate&&!s.cancelledAt&&s.channel==='线上'&&s.lines.some(l=>l.itemId===i.id));if(borrowing)assert(i.kind===before.kind&&i.unit===before.unit&&i.place===before.place,'器材未归还前不能修改使用方式、单位或地点');if(borrowing||occupied||i.reserved>0){assert(!i.deletedAt,'存在借出或预留的物资不能删除');assert(i.group===before.group&&i.kind===before.kind&&i.unit===before.unit,'处理借出和预留后才能修改物资类型或单位');}}
   const locationKeys=new Set();for(const i of active('inventory')){

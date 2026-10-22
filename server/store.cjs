@@ -2,13 +2,13 @@ const {DatabaseSync} = require('node:sqlite');
 const fs = require('node:fs');
 const path = require('node:path');
 const {engine} = require('./engine.cjs');
-const COLLECTIONS = ['cats','rescue','foster','adoption','sterilization','inventory','loans','movements','sales','finance','stories','monthly'];
+const COLLECTIONS = ['cats','rescue','foster','adoption','sterilization','inventory','loans','movements','sales','finance','stories','monthly','events','sponsors','announcements'];
 class Store {
   constructor(directory,{seedMode='demo'}={}) {
     this.directory = path.resolve(directory);
     fs.mkdirSync(path.join(this.directory,'uploads'), {recursive:true});
     this.db = new DatabaseSync(path.join(this.directory,'workbench.sqlite'));
-    if(this.db.prepare('PRAGMA user_version').get().user_version>3){this.db.close();throw new Error('数据库版本高于当前程序，拒绝降级写入');}
+    if(this.db.prepare('PRAGMA user_version').get().user_version>5){this.db.close();throw new Error('数据库版本高于当前程序，拒绝降级写入');}
     this.db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
       CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY,value TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS records(collection TEXT NOT NULL,id TEXT NOT NULL,body TEXT NOT NULL,PRIMARY KEY(collection,id));
@@ -22,7 +22,7 @@ class Store {
       CREATE TABLE IF NOT EXISTS record_changes(revision INTEGER NOT NULL,collection TEXT NOT NULL,id TEXT NOT NULL,body TEXT,before_body TEXT,PRIMARY KEY(revision,collection,id));
       CREATE INDEX IF NOT EXISTS records_status ON records(collection,json_extract(body,'$.status'));
       CREATE INDEX IF NOT EXISTS records_date ON records(collection,json_extract(body,'$.date'));
-      PRAGMA user_version=3;`);
+      PRAGMA user_version=5;`);
     if(!this.db.prepare('SELECT value FROM meta WHERE key=?').get('changes_floor'))this.db.prepare('INSERT INTO meta VALUES(?,?)').run('changes_floor',this.db.prepare('SELECT value FROM meta WHERE key=?').get('revision')?.value||'0');
     if(!this.db.prepare('PRAGMA table_info(record_changes)').all().some(c=>c.name==='before_body'))this.db.exec('ALTER TABLE record_changes ADD COLUMN before_body TEXT');
     for(const c of COLLECTIONS)if(!this.db.prepare('SELECT value FROM meta WHERE key=?').get('order:'+c))this.db.prepare('INSERT INTO meta VALUES(?,?)').run('order:'+c,JSON.stringify(this.db.prepare('SELECT id FROM records WHERE collection=? ORDER BY rowid').all(c).map(r=>r.id)));

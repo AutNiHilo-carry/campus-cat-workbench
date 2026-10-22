@@ -1,12 +1,12 @@
 const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
 const elements=new Map(),handlers={},storage=new Map();
 function el(key){if(!elements.has(key))elements.set(key,{innerHTML:'',textContent:'',value:'',hidden:false,dataset:{},classList:{add(){},remove(){}},addEventListener(){},showModal(){},close(){}});return elements.get(key)}
-const context=vm.createContext({document:{querySelector:el,querySelectorAll:()=>[],addEventListener(n,fn){(handlers[n]||=[]).push(fn)}},window:{addEventListener(){}},location:{hash:''},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},structuredClone,setTimeout:()=>1,clearTimeout(){},console});
+const context=vm.createContext({document:{querySelector:el,querySelectorAll:()=>[],addEventListener(n,fn){(handlers[n]||=[]).push(fn)}},window:{addEventListener(){}},location:{hash:''},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},structuredClone,setTimeout:()=>1,clearTimeout(){},setInterval:()=>1,clearInterval(){},console});
 const run=code=>vm.runInContext(code,context),eq=(code,value)=>assert.equal(run(code),value,code),call=(name,...args)=>run(name+'('+args.map(v=>JSON.stringify(v)).join(',')+')');
-for(const file of ['shared-domain.js','vendor/pinyin-pro-3.29.5.js','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','workspace.js'])run(fs.readFileSync(__dirname+'/'+file,'utf8'),{filename:file});
+for(const file of ['shared-domain.js','vendor/pinyin-pro-3.29.5.js','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','outreach.js','workspace.js'])run(fs.readFileSync(__dirname+'/'+file,'utf8'),{filename:file});
 const day=run('today');
 const view=t=>run(`query='';location.hash='#${t}';render()`);
-eq('data.schemaVersion',4);eq("wbStatuses.sterilization.join(',')",'待绝育,住院中,已放归');eq("(document.querySelector('#nav').innerHTML.match(/class=\"nav-item/g)||[]).length",5);
+eq('data.schemaVersion',4);eq("wbStatuses.sterilization.join(',')",'待绝育,住院中,已放归');eq("(document.querySelector('#nav').innerHTML.match(/class=\"nav-item/g)||[]).length",6);
 assert.doesNotMatch(el('#main').innerHTML,/SMALL ACTIONS|每一份小小的行动/);
 // Existing data is migrated without losing records, and migrations are idempotent.
 run('const copy=structuredClone(data);wbSync(wbMigrate(migrateData(copy)));wbSync(wbMigrate(migrateData(copy)))');eq('copy.cats.length',6);eq('copy.inventory.filter(i=>i.id===\'C001\').length',1);
@@ -324,3 +324,33 @@ run("for(let i=5;i>=0;i--)data.foster.push({id:'EXPERIENCE-'+i,catId:noteCat,cat
 assert.match(el('#fields').innerHTML,/experience-list is-compact/);assert.match(el('#fields').innerHTML,/<details class="experience-card"><summary/);
 assert.ok(el('#fields').innerHTML.indexOf('EXPERIENCE-0')<el('#fields').innerHTML.indexOf('EXPERIENCE-5'));
 console.log('PASS: rescue note editing, required hospitals, compatible cat classification, chronological folded histories and compact long lists.');
+
+// Activities and sponsorships use independent records, shared validation and recoverable deletion.
+run("const outreachSavedFinance=JSON.stringify(data.finance),outreachSavedStock=JSON.stringify(data.inventory)");
+const scheduled={title:'测试校园活动',date:day,place:'测试场地',owner:'测试负责人',staffing:'签到：甲\n摄影：乙',status:'筹备中'};
+assert.equal(call('wbSaveOutreach','events',{...scheduled,owner:''}),false);
+assert.equal(call('wbSaveOutreach','events',scheduled),true);run('const outreachEvent=data.events[0].id');
+const sponsorship={title:'测试支持',organization:'虚构赞助方',owner:'测试对接人',supportType:'物资',supportContent:'示例猫粮2袋',status:'待落实',eventId:run('outreachEvent')};
+assert.equal(call('wbSaveOutreach','sponsors',{...sponsorship,eventId:'NONEXISTENT'}),false);
+assert.equal(call('wbSaveOutreach','sponsors',sponsorship),true);run('const outreachSponsor=data.sponsors[0].id');
+assert.equal(call('wbSaveOutreach','sponsors',{...sponsorship,status:'已落实'},run('outreachSponsor')),false);
+assert.equal(call('wbSaveOutreach','sponsors',{...sponsorship,status:'已落实',receivedDate:day},run('outreachSponsor')),true);
+eq('JSON.stringify(data.finance)',run('outreachSavedFinance'));eq('JSON.stringify(data.inventory)',run('outreachSavedStock'));
+view('events');assert.match(el('#nav').innerHTML,/活动与赞助（测试）/);assert.match(el('#wb-list').innerHTML,/测试校园活动/);
+call('wbHandleAction','wb-add',{});assert.match(el('#fields').innerHTML,/name="staffing"/);
+call('wbOutreachDetail','events',run('outreachEvent'));assert.match(el('#fields').innerHTML,/虚构赞助方/);
+run("find('events',outreachEvent).deletedAt='test'");assert.equal(call('wbSaveOutreach','events',scheduled,run('outreachEvent')),false);
+call('restore','events',run('outreachEvent'));eq("find('events',outreachEvent).deletedAt",'');
+view('sponsors');assert.match(el('#wb-list').innerHTML,/虚构赞助方/);
+console.log('PASS: event staffing, sponsorship links, shared rules, no implicit ledger/stock writes, routes, forms and trash recovery.');
+
+// Notice popups remember exact content per browser; edits trigger a new reminder.
+run("data.announcements=[{id:'NOTICE-UI',title:'<测试公告>',content:'第一行\\n第二行',status:'已发布'}];const noticeOriginal=DanmiaoDomain.announcementKey(data.announcements[0])");
+eq('wbNoticeSeen().has(noticeOriginal)',false);call('wbStartAnnouncements');eq('wbNoticeSeen().has(noticeOriginal)',true);
+assert.match(el('#fields').innerHTML,/&lt;测试公告&gt;/);assert.doesNotMatch(el('#fields').innerHTML,/<测试公告>/);
+run("document.querySelector('#modal-title').textContent='保持当前界面'");call('wbStartAnnouncements');eq("document.querySelector('#modal-title').textContent",'保持当前界面');
+run("data.announcements[0].content='更新后的公告内容'");eq('wbNoticeSeen().has(DanmiaoDomain.announcementKey(data.announcements[0]))',false);call('wbStartAnnouncements');eq("document.querySelector('#modal-title').textContent",'公告栏');
+assert.equal(call('wbSaveAnnouncement',{title:'新草稿',content:'草稿正文',status:'草稿'}),true);eq('wbPublishedAnnouncements().length',1);
+assert.match(run('wbAnnouncementBar()'),/wb-announcement-ticker/);
+run("window.DanmiaoBackend={user:{id:'notice-viewer',role:'viewer'}}");assert.equal(call('wbSaveAnnouncement',{title:'非法发布',content:'正文',status:'已发布'}),false);eq('wbCanEditAnnouncements()',false);run('delete window.DanmiaoBackend');
+console.log('PASS: announcement first-read memory, content revision reminders, draft filtering, escaped text and frontend admin guard.');

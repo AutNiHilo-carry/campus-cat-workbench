@@ -3,7 +3,7 @@ icons.finance='<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18
 icons.history='<path d="M3 11a9 9 0 1 1 2 7M3 5v6h6m3-4v6l4 2"/>';
 const checklistItems={health:'健康与用药记录',medicine:'药品及使用说明',food:'猫粮与喂养说明',supplies:'航空箱、猫砂等用品',contact:'照护联系人与交接确认'};
 const completedStates={rescue:'已结案',foster:'已结束',adoption:'已领养',sterilization:'已完成'};
-const recordTypes=['rescue','foster','adoption','sterilization','inventory','monthly','finance','cats'];
+const recordTypes=['announcements','events','sponsors','rescue','foster','adoption','sterilization','inventory','monthly','finance','cats'];
 const businessTypes=['rescue','foster','adoption','sterilization'];
 const extraInventory=[
  {id:'C001',name:'校园猫咪贴纸',group:'文创',category:'贴纸',variant:'六猫组合款',qty:70,reserved:10,sold:10,unit:'张',place:'活动室文创柜',unitPriceCents:600,kind:'消耗品'},

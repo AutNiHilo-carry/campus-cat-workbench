@@ -11,7 +11,7 @@ const {listRecords,visibleRecord}=require('./queries.cjs');
 const {Backups}=require('./backups.cjs');
 const {passwordInput,passwordHash,passwordMatches,replacePassword}=require('./passwords.cjs');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
-const publicFiles=new Set(['shared-domain.js','backend-client.js','backend.css','login.html','index.html','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','workspace.js','style.css','management.css','workbench.css','stories.css','mobile.css','vendor/pinyin-pro-3.29.5.js','assets/aihe-logo.png','assets/campus-cat-mark.svg','assets/default-cat-avatars-v4.png']);
+const publicFiles=new Set(['shared-domain.js','outreach.js','outreach.css','backend-client.js','backend.css','login.html','index.html','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','workspace.js','style.css','management.css','workbench.css','stories.css','mobile.css','vendor/pinyin-pro-3.29.5.js','assets/aihe-logo.png','assets/campus-cat-mark.svg','assets/default-cat-avatars-v4.png']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml'};
 function userInput(value){V.assert(value&&typeof value.username==='string'&&/^[a-zA-Z0-9_.-]{3,40}$/.test(value.username),'用户名需为3至40位字母、数字、下划线或连字符');V.assert(typeof value.name==='string'&&value.name.trim().length>=1&&value.name.length<=40,'请填写显示名称（40字以内）');V.assert(typeof value.password==='string'&&value.password.length>=10&&value.password.length<=128,'密码需为10至128位');}
 async function body(req,limit=5*1024*1024){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>limit)V.fail('请求内容超过限制',413);chunks.push(chunk);}return Buffer.concat(chunks);}
@@ -55,7 +55,7 @@ function createApp(options={}){
    res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Referrer-Policy','same-origin');
    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
    try{
-     if(req.url==='/api/health'&&req.method==='GET'){db.prepare('SELECT 1').get();return send(res,200,{ok:true,version:3});}
+     if(req.url==='/api/health'&&req.method==='GET'){db.prepare('SELECT 1').get();return send(res,200,{ok:true,version:5});}
      S.originGuard(req,config);const url=new URL(req.url,`http://${req.headers.host}`),route=url.pathname,method=req.method;
      if(route==='/api/session'&&method==='GET'){const s=session(req);return send(res,200,{setupRequired:userCount()===0,setupTokenRequired:Boolean(config.setupToken),...(s?sessionPayload(s):{user:null})});}
      if((route==='/api/setup'||route==='/api/login')&&method==='POST'){
@@ -148,6 +148,7 @@ function createApp(options={}){
            const existing=db.prepare('SELECT id FROM files WHERE id=?').get(f.id);if(existing)V.assert(hash(fs.readFileSync(path.join(store.directory,'uploads',f.id)))===hash(bytes),'备份中的附件编号与现有文件冲突',409);
          }
          V.assert(uploadTotal()+[...registry.values()].filter(f=>!db.prepare('SELECT id FROM files WHERE id=?').get(f.id)).reduce((n,f)=>n+f.size,0)<=config.maxUploadBytes,'附件存储空间不足',507);
+         value.state.events??=[];value.state.sponsors??=[];value.state.announcements??=[];
          for(const c of COLLECTIONS){V.assert(Array.isArray(value.state[c]),'备份缺少业务模块：'+c);for(const row of value.state[c]){V.assert(row&&typeof row==='object'&&!Array.isArray(row),'备份记录格式有误');if(!row.createdBy||!db.prepare('SELECT id FROM users WHERE id=?').get(row.createdBy))row.createdBy=user.id;}}
          V.validateState(value.state,value.state,id=>registry.get(id));const restored=engine(value.state).state,created=[];
          try{store.transaction(()=>{for(const [id,f]of registry){const destination=path.join(store.directory,'uploads',id);if(!fs.existsSync(destination)){fs.writeFileSync(destination,buffers.get(id),{flag:'wx'});created.push(destination);}db.prepare('INSERT INTO files VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING').run(id,path.basename(f.name),f.mime,f.kind,f.size,user.id,new Date().toISOString());}store.save(restored,store.revision()+1);cached=null;db.prepare('INSERT INTO audit(time,user_id,actor,action,changes) VALUES(?,?,?,?,?)').run(new Date().toISOString(),user.id,user.name,'恢复完整备份','[]');});}catch(e){for(const file of created)fs.unlinkSync(file);throw e;}

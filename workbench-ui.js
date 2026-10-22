@@ -1,11 +1,11 @@
-let wbBusinessTab={cats:'全部',rescue:'全部',foster:'全部',adoption:'推进中',sterilization:'待绝育'},wbSaleChannel='线上',wbFinanceTab='明细',wbHistoryAdoptions=false,wbFormLines=1,wbLedgerDirection='全部',wbMonthlyCategory='全部',wbAdoptionIntent='全部',wbFollowupTab='待回访';
+let wbBusinessTab={events:'即将开展',sponsors:'全部',cats:'全部',rescue:'全部',foster:'全部',adoption:'推进中',sterilization:'待绝育'},wbSaleChannel='线上',wbFinanceTab='明细',wbHistoryAdoptions=false,wbFormLines=1,wbLedgerDirection='全部',wbMonthlyCategory='全部',wbAdoptionIntent='全部',wbFollowupTab='待回访';
 const wbTitle={rescue:'救助',foster:'寄养',adoption:'领养',sterilization:'绝育',cats:'猫咪档案'};
 const wbDataName={...names,sales:'文创售卖',movements:'物资流水'};
 const wbListPages=new Map();let wbListPageInfo=null,wbRemoteList=null;
 function wbPageKey(){return JSON.stringify([page,query,month,wbBusinessTab[page],inventoryGroup,inventoryView,wbSaleChannel,wbFinanceTab,wbLedgerDirection,wbMonthlyCategory,wbHistoryAdoptions,wbAdoptionIntent,wbFollowupTab]);}
 function wbListRequest(){
  const key=wbPageKey(),collection=page==='inventory'?(inventoryView==='stock'?'inventory':inventoryView):page;
- return {key,collection,params:{q:query,month,page:wbListPages.get(key)||1,pageSize:page==='cats'?9:page==='inventory'&&inventoryView==='stock'?6:10,tab:[...businessTypes,'cats'].includes(page)?wbBusinessTab[page]:page==='finance'?wbFinanceTab:'',intent:wbAdoptionIntent,followup:wbFollowupTab,history:wbHistoryAdoptions?'1':'0',direction:wbLedgerDirection,category:wbMonthlyCategory,group:inventoryGroup,channel:wbSaleChannel,grouped:page==='inventory'&&inventoryView==='stock'?'1':'0',target:wbHomeTarget?.id||''}};
+ return {key,collection,params:{q:query,month,page:wbListPages.get(key)||1,pageSize:page==='cats'?9:page==='inventory'&&inventoryView==='stock'?6:10,tab:[...businessTypes,'cats','events','sponsors'].includes(page)?wbBusinessTab[page]:page==='finance'?wbFinanceTab:'',intent:wbAdoptionIntent,followup:wbFollowupTab,history:wbHistoryAdoptions?'1':'0',direction:wbLedgerDirection,category:wbMonthlyCategory,group:inventoryGroup,channel:wbSaleChannel,grouped:page==='inventory'&&inventoryView==='stock'?'1':'0',target:wbHomeTarget?.id||''}};
 }
 function wbPageRows(rows,size=10){if(wbRemoteList){wbListPageInfo={key:wbPageKey(),current:wbRemoteList.page,pages:wbRemoteList.pages,size:wbRemoteList.pageSize,total:wbRemoteList.total};wbListPages.set(wbPageKey(),wbRemoteList.page);return rows;}const key=wbPageKey(),pages=Math.max(1,Math.ceil(rows.length/size));let current=Math.max(1,Math.min(pages,wbListPages.get(key)||1));if(wbHomeTarget){const i=rows.findIndex(r=>Array.isArray(r)?r.some(i=>i.id===wbHomeTarget.id):r.id===wbHomeTarget.id);if(i>=0)current=Math.floor(i/size)+1;}wbListPages.set(key,current);wbListPageInfo={key,current,pages,size,total:rows.length};return rows.slice((current-1)*size,current*size);}
 function wbPagination(){const p=wbListPageInfo;if(!p||p.pages<=1)return '';const nums=[...new Set([1,...Array.from({length:5},(_,i)=>p.current-2+i).filter(n=>n>1&&n<p.pages),p.pages])];return `<nav class="list-pagination" aria-label="记录分页"><span>共 ${p.total} 条 · 每页 ${p.size} 条</span><div>${wbButton('上一页','page',`data-page-number="${p.current-1}" ${p.current===1?'disabled':''}`)}${nums.map((n,i)=>`${i&&n>nums[i-1]+1?'<span class="page-ellipsis">…</span>':''}<button type="button" class="page-number ${n===p.current?'current':''}" data-action="wb-page" data-page-number="${n}" aria-label="第 ${n} 页" ${n===p.current?'aria-current="page"':''}>${n}</button>`).join('')}${wbButton('下一页','page',`data-page-number="${p.current+1}" ${p.current===p.pages?'disabled':''}`)}</div></nav>`;}
@@ -25,11 +25,11 @@ function wbRender(){
  wbPrepareHomeTarget();
  const catSection=[...businessTypes,'cats'].includes(page),section=catSection?'猫咪事务':page==='overview'?'首页':names[page];
  $('#crumb').textContent=section+(catSection?' / '+wbTitle[page]:'');
- $('#nav').innerHTML=[['overview','首页','overview'],['sterilization','猫咪事务','cats'],['inventory','物资管理','inventory'],['finance','财务管理','finance'],['monthly','本月工作','monthly']].map(([key,title,ico])=>`<a class="nav-item ${(catSection&&key==='sterilization'||page===key)?'active':''}" href="#${key}">${icon(ico)}${title}</a>`).join('');
+ $('#nav').innerHTML=[['overview','首页','overview'],['sterilization','猫咪事务','cats'],['inventory','物资管理','inventory'],['finance','财务管理','finance'],['events','活动与赞助（测试）','events'],['monthly','本月工作','monthly']].map(([key,title,ico])=>`<a class="nav-item ${(catSection&&key==='sterilization'||key==='events'&&page==='sponsors'||page===key)?'active':''}" href="#${key}">${icon(ico)}${title}</a>`).join('');
  $('#main').className=page==='overview'?'home-page':'';
- $('#main').innerHTML=page==='overview'?wbHome():catSection?wbCatPage():page==='inventory'?wbInventoryPage():page==='finance'?wbFinancePage():page==='monthly'?wbMonthlyPage():historyPage();
+ $('#main').innerHTML=page==='overview'?wbHome():page==='announcements'?wbAnnouncementsPage():catSection?wbCatPage():['events','sponsors'].includes(page)?wbOutreachPage():page==='inventory'?wbInventoryPage():page==='finance'?wbFinancePage():page==='monthly'?wbMonthlyPage():historyPage();
  if(page!=='overview'&&page!=='history')wbRefresh();
- wbLoadImages();wbStartStories();wbFocusHomeTarget();
+ wbLoadImages();wbStartStories();wbFocusHomeTarget();wbStartAnnouncements();
 }
 
 let wbHomeTarget=null;
@@ -49,7 +49,7 @@ function wbTasks(){
  return tasks;
 }
 function wbHome(){const tasks=wbTasks().filter(t=>t.type!=='finance'),groups=[['猫咪事务',tasks.filter(t=>businessTypes.includes(t.type))],['物资与交付',[...tasks.filter(t=>t.type==='sales'),...active('inventory').map(i=>wbTask('inventory',i.id,i.name+' · '+i.place,'在库 '+i.qty+' '+i.unit+(i.group==='文创'?' · 可售 '+wbAvailable(data,i.id):''),'跳转','item'))]]];
- return `<div class="home-heading"><h1>待处理事项</h1><div class="home-heading-meta"><strong>${today}<span>·</span>${tasks.length} 项待处理</strong><a href="#monthly">查看本月完成工作 →</a></div></div><div class="queue-grid">${groups.map(([title,items])=>`<section class="panel queue"><div class="panel-head"><h2>${title}</h2><span class="count-chip">${items.length}</span></div><div class="queue-scroll" tabindex="0" role="region" aria-label="${title}待处理列表">${items.map(t=>`<article class="task-row"><div><b>${esc(t.title)}</b><p>${esc(t.description)}</p></div>${wbButton('跳转','home-jump',`data-type="${t.type}" data-id="${t.id}" ${t.attrs}`)}</article>`).join('')||'<div class="queue-empty">暂时没有待处理事项 ✓</div>'}</div></section>`).join('')}</div>`+wbStoryBoard();
+ return '<div class="home-intro">'+wbAnnouncementBar()+`<div class="home-heading"><h1>待处理事项</h1><div class="home-heading-meta"><strong>${today}<span>·</span>${tasks.length} 项待处理</strong><a href="#monthly">查看本月完成工作 →</a></div></div></div><div class="queue-grid">${groups.map(([title,items])=>`<section class="panel queue"><div class="panel-head"><h2>${title}</h2><span class="count-chip">${items.length}</span></div><div class="queue-scroll" tabindex="0" role="region" aria-label="${title}待处理列表">${items.map(t=>`<article class="task-row"><div><b>${esc(t.title)}</b><p>${esc(t.description)}</p></div>${wbButton('跳转','home-jump',`data-type="${t.type}" data-id="${t.id}" ${t.attrs}`)}</article>`).join('')||'<div class="queue-empty">暂时没有待处理事项 ✓</div>'}</div></section>`).join('')}</div>`+wbStoryBoard();
 }
 function wbCatPage(){
  const titles={cats:['猫咪档案','查看一只猫的照片、现状和各段经历。','新增猫咪'],rescue:['救助记录','先记地点、照片和情况，猫咪档案可以后补。','新增救助'],foster:['寄养记录','保留每一段寄养地点与照护交接。','新增寄养'],adoption:['领养记录','待领养及推进中的猫，与已领养的猫分开查看。','新增领养经历'],sterilization:['绝育记录','按待绝育、住院中和已放归分类；住院中即计入本月工作。','登记绝育']};
@@ -113,7 +113,8 @@ function wbRefresh(){
 
  if(page==='cats'){
   rows=wbRemoteList?wbRemoteList.records:active('cats').filter(c=>matches(c)&&(wbBusinessTab.cats==='全部'||DanmiaoDomain.catCategory(data,c)===wbBusinessTab.cats));html=`<div class="cat-grid">${wbPageRows(rows,9).map(c=>`<article class="cat-card" tabindex="0" data-cat-card="${c.id}" aria-label="查看${esc(c.name)}档案"><div class="cat-photo-area"><button type="button" class="cat-portrait portrait-edit portrait-view" data-action="wb-detail" data-type="cats" data-id="${c.id}" aria-label="查看${esc(c.name)}详情">${c.avatar?`<img data-asset="${esc(c.avatar.id)}" alt="${esc(c.name)}的头像">`:wbCatFace(c)}</button></div><div class="cat-card-body"><div class="cat-card-title"><h3>${esc(c.name)}${DanmiaoDomain.catCategory(data,c)!=='其他'?` <span class="badge">${esc(DanmiaoDomain.catCategory(data,c))}</span>`:''}</h3>${wbButton('更换头像','avatar',`data-id="${c.id}" aria-label="更换${esc(c.name)}头像"`)}</div><p>${esc([c.place,c.health].filter(Boolean).join(' · ')||'基本资料待补充')}</p>${wbButton('查看档案与经历','detail',`data-type="cats" data-id="${c.id}"`)}</div></article>`).join('')}</div>`;
- }else if(businessTypes.includes(page)){rows=wbRemoteList?wbRemoteList.records:wbBusinessRows();html=wbBusinessTable(wbPageRows(rows));}
+ }else if(['events','sponsors'].includes(page)){rows=wbRemoteList?wbRemoteList.records:wbOutreachRows(page);html=wbOutreachTable(page,wbPageRows(rows));}
+ else if(businessTypes.includes(page)){rows=wbRemoteList?wbRemoteList.records:wbBusinessRows();html=wbBusinessTable(wbPageRows(rows));}
  else if(page==='inventory'){
   if(inventoryView==='stock'){rows=wbRemoteList?wbRemoteList.records:wbStockRows();html=wbStockTable(rows,true);}
   else if(inventoryView==='sales'){rows=wbRemoteList?wbRemoteList.records:active('sales').filter(s=>s.channel===wbSaleChannel&&matches(s));html=wbSalesTable(wbPageRows(rows));}
@@ -177,6 +178,8 @@ function wbAttachmentTrash(type,r,key){const owners=[{type,row:find(type,r.id)}]
 function wbRefreshAttachment(type,id,key){if(type==='adoption'&&key==='agreements')wbAgreementDetail(id);else wbRecordDetail(type,id);}
 
 function wbRecordDetail(type,id){
+ if(type==='announcements')return wbReadAnnouncements();
+ if(['events','sponsors'].includes(type))return wbOutreachDetail(type,id);
  const r=find(type,id);if(!r)return showDetails('关联记录','原记录已不可用');let html='';
  const attrs=`data-type="${type}" data-id="${id}"`;
  if(type==='adoption')return wbAdoptionDetail(r);
@@ -218,10 +221,11 @@ async function wbUpload(input){
  let refs=[];try{if(window.DanmiaoBackend){refs=await window.DanmiaoBackend.uploadFiles(files,contract);}else{const db=await wbAssetDB();const tx=db.transaction('images','readwrite');const done=new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)});for(const file of files){const imageId=wbId('IMG');tx.objectStore('images').put({id:imageId,blob:file});refs.push({id:imageId,name:file.name,type:file.type});}await done;db.close();}if(row.deletedAt||find(type,id)!==row)return toast('记录已变更，请返回列表重新上传');const before=clone(row);if(key==='avatar'){row.avatar=refs[0];row.photos=[...(row.photos||[]),refs[0]];}else row[key]=[...(row[key]||[]),...refs];persist('已添加'+refs.length+(contract?'份协议文件':'张图片'),{type,recordId:id,action:key==='agreements'?'归档协议文件':'添加照片',before,after:clone(row)});if(key==='avatar')wbAvatarDialog(id);else if(contract)wbAgreementDetail(id);else wbRecordDetail(type,id);}catch{toast('文件保存失败，请检查浏览器本地存储空间');}
 }
 function wbHandleAction(action,ds){
+ if(wbAnnouncementAction(action,ds))return true;
  if(action==='wb-home-jump'){wbHomeJump(ds.type,ds.id);return true;}
  if(action.startsWith('wb-story-'))return wbHandleStoryAction(action.slice(9),ds);
  if(!action.startsWith('wb-'))return false;const a=action.slice(3),id=ds.id,type=ds.type;
- if(a==='page'){if(wbListPageInfo){wbListPages.set(wbListPageInfo.key,Math.max(1,Math.min(wbListPageInfo.pages,Number(ds.pageNumber)||1)));wbRefresh();document.querySelector('#wb-list')?.scrollIntoView?.({block:'start'});}return true;}if(a==='cat-description')wbEditCatDescription(id);if(a==='add'){if(page==='inventory'&&inventoryView==='loans')wbNewLoan();else if(page==='inventory'&&inventoryView==='sales')wbSaleForm();else if(page==='monthly')wbEditMonthly();else if(page==='finance')wbEditFinance();else edit(page==='overview'?'rescue':page);}
+ if(a==='page'){if(wbListPageInfo){wbListPages.set(wbListPageInfo.key,Math.max(1,Math.min(wbListPageInfo.pages,Number(ds.pageNumber)||1)));wbRefresh();document.querySelector('#wb-list')?.scrollIntoView?.({block:'start'});}return true;}if(a==='cat-description')wbEditCatDescription(id);if(a==='add'){if(['events','sponsors'].includes(page))wbOutreachForm(page);else if(page==='inventory'&&inventoryView==='loans')wbNewLoan();else if(page==='inventory'&&inventoryView==='sales')wbSaleForm();else if(page==='monthly')wbEditMonthly();else if(page==='finance')wbEditFinance();else edit(page==='overview'?'rescue':page);}
  if(a==='edit')edit(type,id);
  if(a==='state')wbChangeState(type,id);
  if(a==='applicant-edit')wbEditApplicant(id);

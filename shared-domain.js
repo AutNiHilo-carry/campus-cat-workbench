@@ -8,6 +8,34 @@ const checklistItems={health:1,medicine:1,food:1,supplies:1,contact:1};
 const money=cents=>'¥ '+(Number(cents||0)/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
 // Pure shared rules: no DOM, browser storage or server dependencies.
 const wbStatuses={rescue:['待救助','就医中','已结束'],foster:['待安置','寄养中','已结束'],adoption:['无领养人','有意向领养人','已领养'],sterilization:['待绝育','住院中','已放归']};
+const outreachStates={events:['筹备中','报名中','进行中','已完成','已取消'],sponsors:['意向沟通','待落实','已落实','已结束','已取消']};
+function outreachError(type,row,store,asOf=day()){
+ if(!outreachStates[type]?.includes(row.status))return '请选择有效状态';
+ for(const key of ['title','owner'])if(typeof row[key]!=='string'||!row[key].trim()||row[key].length>120)return key==='title'?'请填写名称（120字以内）':'请填写负责人（120字以内）';
+ for(const key of ['place','staffing','agenda','materials','note','result','organization','contact','supportContent','eventId','supportType','date','endDate','time','completedDate','targetDate','receivedDate'])if(row[key]!==undefined&&(typeof row[key]!=='string'||row[key].length>10000))return '文字字段格式有误或内容过长';
+ if(type==='events'){
+  if(!wbValidDate(row.date)||!row.place?.trim())return '请填写有效活动日期和地点';
+  if(row.endDate&&(!wbValidDate(row.endDate)||row.endDate<row.date))return '结束日期不能早于活动日期';
+  if(row.status==='进行中'&&row.date>asOf)return '活动尚未到开始日期';
+  if(row.completedDate&&(!wbValidDate(row.completedDate)||row.completedDate<row.date||row.completedDate>asOf))return '实际完成日期应在活动开始日至今天之间';
+  if(row.status==='已完成'&&(!wbValidDate(row.completedDate)||!row.result?.trim()))return '已完成活动需填写实际完成日期和成果';
+ }else{
+  if(!row.organization?.trim()||!row.supportContent?.trim())return '请填写赞助方和支持内容';
+  if(!['资金','物资','服务','其他'].includes(row.supportType))return '请选择支持类型';
+  if(row.eventId&&!store.events.some(e=>e.id===row.eventId))return '关联活动不存在，请重新选择';
+  if(row.targetDate&&!wbValidDate(row.targetDate))return '预计落实日期无效';
+  if(row.receivedDate&&(!wbValidDate(row.receivedDate)||row.receivedDate>asOf))return '实际落实日期不能晚于今天';
+  if(['已落实','已结束'].includes(row.status)&&!wbValidDate(row.receivedDate))return '请填写实际落实日期';
+ }
+ return '';
+}
+function announcementError(row){
+ if(!['草稿','已发布','已撤下'].includes(row.status))return '请选择有效公告状态';
+ if(typeof row.title!=='string'||!row.title.trim()||row.title.length>120)return '请填写公告标题（120字以内）';
+ if(typeof row.content!=='string'||!row.content.trim()||row.content.length>8000)return '请填写公告正文（8000字以内）';
+ return '';
+}
+function announcementKey(row){const text=JSON.stringify([row.id,row.title,row.content]);let hash=2166136261;for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),16777619);return row.id+':'+(hash>>>0).toString(16);}
 const wbId=p=>p+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
 const wbActive=(store,type)=>(store[type]||[]).filter(r=>!r.deletedAt);
 const wbValidDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'')&&!Number.isNaN(Date.parse(s+'T00:00:00Z'))&&new Date(s+'T00:00:00Z').toISOString().slice(0,10)===s;
@@ -28,6 +56,7 @@ function catCategory(store,cat){
  return wbActive(store,'adoption').some(r=>related(r)&&r.status==='已领养')?'已领养':'其他';
 }
 function wbMigrate(store,asOf=day()){
+ store.events??=[];store.sponsors??=[];store.announcements??=[];
  store.sales??=[];store.dismissed??=[];store.stories??=[];for(const item of store.inventory){delete item.min;item.photos??=[];}store.dismissed=store.dismissed.filter(key=>!key.startsWith('low:'));
  for(const t of businessTypes)for(const r of store[t]){
   r.status=({rescue:{'待响应':'待救助','待相应':'待救助','已接手':'待救助','救助中':'待救助','已结案':'已结束'},foster:{'待入住':'待安置','待交接':'待安置'},adoption:{'待审核':'无领养人','待领养':'无领养人','沟通中':'有意向领养人','试养中':'有意向领养人','未通过':'无领养人'},sterilization:{'待预约':'待绝育','已预约':'待绝育','术后照护':'住院中','已完成':'已放归'}}[t][r.status])||r.status;
@@ -109,5 +138,5 @@ function migrateData(input,{defaults={},extraInventory=[],asOf=day()}={}){
  return input;
 }
 
-return {day,catCategory,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
+return {day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
 });
