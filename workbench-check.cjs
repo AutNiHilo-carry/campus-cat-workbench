@@ -471,3 +471,6 @@ run("inventoryGroup='日常';inventoryView='movements'");view('inventory');asser
 console.log('PASS: stable movement and loan numbers with linked borrowing/return details.');
 
 run("window.DanmiaoBackend={user:{role:'viewer'}}");assert.doesNotMatch(call('wbCatIdentityCard',run("find('cats','C-MEDIA-UI')")),/data-action="wb-edit"/);assert.doesNotMatch(call('wbCatPhotoFigure',run("find('cats','C-MEDIA-UI')"),{id:'P-READ',name:'read.png',title:'只读照片'},''),/photo-trash/);run('delete window.DanmiaoBackend');
+
+run("data.loans.push({id:'LOAN-UNRETURNED-TEST',itemId:'I004',itemName:'未归还测试器材',date:today,quantity:1,borrower:'测试成员',returnedDate:''},{id:'LOAN-RETURNED-TEST',itemId:'I004',itemName:'已归还测试器材',date:today,quantity:1,borrower:'测试成员',returnedDate:today});inventoryGroup='日常';inventoryView='loans';wbLoanTab='未归还'");view('inventory');assert.match(el('#wb-list').innerHTML,/未归还测试器材/);assert.doesNotMatch(el('#wb-list').innerHTML,/已归还测试器材/);eq('wbListRequest().params.loanState','未归还');const openLoanKey=run('wbPageKey()');run("wbLoanTab='已归还'");view('inventory');assert.match(el('#wb-list').innerHTML,/已归还测试器材/);assert.doesNotMatch(el('#wb-list').innerHTML,/未归还测试器材/);assert.notEqual(run('wbPageKey()'),openLoanKey);eq('wbListRequest().params.loanState','已归还');
+console.log('PASS: open/returned loan lists, isolated pagination keys and matching backend filter requests.');

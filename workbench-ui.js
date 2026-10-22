@@ -1,11 +1,12 @@
+let wbLoanTab='未归还';
 let wbBusinessTab={events:'即将开展',sponsors:'全部',cats:'全部',rescue:'全部',foster:'全部',adoption:'推进中',sterilization:'待绝育'},wbSaleChannel='线上',wbFinanceTab='明细',wbHistoryAdoptions=false,wbFormLines=1,wbLedgerDirection='全部',wbMonthlyCategory='全部',wbAdoptionIntent='全部',wbFollowupTab='待回访';
 const wbTitle={rescue:'救助',foster:'寄养',adoption:'领养',sterilization:'绝育',cats:'猫咪档案'};
 const wbDataName={...names,sales:'文创售卖',movements:'物资流水'};
 const wbListPages=new Map();let wbListPageInfo=null,wbRemoteList=null;
-function wbPageKey(){return JSON.stringify([page,query,month,wbBusinessTab[page],inventoryGroup,inventoryView,wbSaleChannel,wbFinanceTab,wbLedgerDirection,wbMonthlyCategory,wbHistoryAdoptions,wbAdoptionIntent,wbFollowupTab]);}
+function wbPageKey(){return JSON.stringify([page,query,month,wbBusinessTab[page],inventoryGroup,inventoryView,wbSaleChannel,wbFinanceTab,wbLedgerDirection,wbMonthlyCategory,wbHistoryAdoptions,wbAdoptionIntent,wbFollowupTab,wbLoanTab]);}
 function wbListRequest(){
  const key=wbPageKey(),collection=page==='inventory'?(inventoryView==='stock'?'inventory':inventoryView):page;
- return {key,collection,params:{q:query,month,page:wbListPages.get(key)||1,pageSize:page==='cats'?9:page==='inventory'&&inventoryView==='stock'?6:10,tab:[...businessTypes,'cats','events','sponsors'].includes(page)?wbBusinessTab[page]:page==='finance'?wbFinanceTab:'',intent:wbAdoptionIntent,followup:wbFollowupTab,history:wbHistoryAdoptions?'1':'0',direction:wbLedgerDirection,category:wbMonthlyCategory,group:inventoryGroup,channel:wbSaleChannel,grouped:page==='inventory'&&inventoryView==='stock'?'1':'0',target:wbHomeTarget?.id||''}};
+ return {key,collection,params:{q:query,month,page:wbListPages.get(key)||1,pageSize:page==='cats'?9:page==='inventory'&&inventoryView==='stock'?6:10,tab:[...businessTypes,'cats','events','sponsors'].includes(page)?wbBusinessTab[page]:page==='finance'?wbFinanceTab:'',intent:wbAdoptionIntent,followup:wbFollowupTab,history:wbHistoryAdoptions?'1':'0',direction:wbLedgerDirection,category:wbMonthlyCategory,group:inventoryGroup,loanState:wbLoanTab,channel:wbSaleChannel,grouped:page==='inventory'&&inventoryView==='stock'?'1':'0',target:wbHomeTarget?.id||''}};
 }
 function wbPageRows(rows,size=10){if(wbRemoteList){wbListPageInfo={key:wbPageKey(),current:wbRemoteList.page,pages:wbRemoteList.pages,size:wbRemoteList.pageSize,total:wbRemoteList.total};wbListPages.set(wbPageKey(),wbRemoteList.page);return rows;}const key=wbPageKey(),pages=Math.max(1,Math.ceil(rows.length/size));let current=Math.max(1,Math.min(pages,wbListPages.get(key)||1));if(wbHomeTarget){const i=rows.findIndex(r=>Array.isArray(r)?r.some(i=>i.id===wbHomeTarget.id):r.id===wbHomeTarget.id);if(i>=0)current=Math.floor(i/size)+1;}wbListPages.set(key,current);wbListPageInfo={key,current,pages,size,total:rows.length};return rows.slice((current-1)*size,current*size);}
 function wbPagination(){const p=wbListPageInfo;if(!p||p.pages<=1)return '';const nums=[...new Set([1,...Array.from({length:5},(_,i)=>p.current-2+i).filter(n=>n>1&&n<p.pages),p.pages])];return `<nav class="list-pagination" aria-label="记录分页"><span>共 ${p.total} 条 · 每页 ${p.size} 条</span><div>${wbButton('上一页','page',`data-page-number="${p.current-1}" ${p.current===1?'disabled':''}`)}${nums.map((n,i)=>`${i&&n>nums[i-1]+1?'<span class="page-ellipsis">…</span>':''}<button type="button" class="page-number ${n===p.current?'current':''}" data-action="wb-page" data-page-number="${n}" aria-label="第 ${n} 页" ${n===p.current?'aria-current="page"':''}>${n}</button>`).join('')}${wbButton('下一页','page',`data-page-number="${p.current+1}" ${p.current===p.pages?'disabled':''}`)}</div></nav>`;}
@@ -87,6 +88,7 @@ function wbInventoryPage(){
  let nav=tabs([['日常','日常物资'],['文创','文创物资']],inventoryGroup,'data-group');
  if(creative){if(!['stock','sales'].includes(inventoryView))inventoryView='stock';nav+=tabs([['stock','库存'],['sales','售卖']],inventoryView,'data-stock-view');if(inventoryView==='sales')nav+=tabs([['线上','线上订单'],['线下','线下活动']],wbSaleChannel,'data-wb-channel');}
  else{if(inventoryView==='sales')inventoryView='stock';nav+=tabs([['stock','库存'],['loans','器材借还'],['movements','变动记录']],inventoryView,'data-stock-view');}
+ if(!creative&&inventoryView==='loans')nav+=tabs([['未归还','未归还'],['已归还','已归还']],wbLoanTab,'data-wb-loan');
  const sales=creative&&inventoryView==='sales';
  return wbTop('物资管理',sales?(wbSaleChannel==='线上'?'下单占用数量，整单发货或自提交付后扣库存。':'按每场活动登记各款销量和实际总收入。'):'日常用品与文创分开管理，数量变化有记录。',sales?(wbSaleChannel==='线上'?'登记线上订单':'登记线下活动'):(inventoryView==='loans'?'新增借用记录':creative?'新增文创物资':'新增日常物资'))+nav+wbFilters()+'<div id="wb-list"></div>';
 }
@@ -127,7 +129,7 @@ function wbRefresh(){
  else if(page==='inventory'){
   if(inventoryView==='stock'){rows=wbRemoteList?wbRemoteList.records:wbStockRows();html=wbStockTable(rows,true);}
   else if(inventoryView==='sales'){rows=wbRemoteList?wbRemoteList.records:active('sales').filter(s=>s.channel===wbSaleChannel&&matches(s));html=wbSalesTable(wbPageRows(rows));}
-  else if(inventoryView==='loans'){rows=wbRemoteList?wbRemoteList.records:active('loans').filter(matches);html=wbLoanTable(wbPageRows(rows));}
+  else if(inventoryView==='loans'){rows=wbRemoteList?wbRemoteList.records:active('loans').filter(l=>(wbLoanTab==='已归还'?!!l.returnedDate:!l.returnedDate)&&matches(l));html=wbLoanTable(wbPageRows(rows));}
   else{rows=wbRemoteList?wbRemoteList.records:active('movements').filter(r=>(!r.itemId||find('inventory',r.itemId)?.group===inventoryGroup)&&matches(r));html=wbTable(['流水编号','借还单号','日期','物资','操作 / 数量','经办人','用途（器材）','备注'],wbPageRows(rows).map(r=>[wbRecordNumber(r.id),wbMovementLoanLink(r),esc(r.date),esc(r.itemName),esc(r.type)+' · '+r.quantity,person(r.owner),esc(['借出','归还'].includes(r.type)?r.destination||'—':'—'),`<span class="wrap">${esc(r.note||'')}</span>`]));}
  }else if(page==='finance'){
   rows=wbRemoteList?wbRemoteList.records:active('finance').filter(b=>matches(b)&&(wbFinanceTab==='待结清'?wbIsPendingSettlement(b):wbFinanceTab==='收入待确认'?b.flow==='收入'&&(b.status==='待确认'||b.refundReview):wbFinanceTab==='报销待审核'?b.flow==='个人垫付'&&b.status==='待审核':wbFinanceTab==='待处理'?['待确认','待审核'].includes(b.status)||b.refundReview:b.date.startsWith(month))).filter(b=>wbFinanceTab!=='明细'||wbLedgerDirection==='全部'||(wbLedgerDirection==='收入'?b.flow==='收入':b.flow!=='收入'));
@@ -286,6 +288,7 @@ document.addEventListener('click',e=>{
  const t=e.target.closest('button');if(!t)return;const ds=t.dataset;
  if(ds.wbRoute)go(ds.wbRoute);
  if(ds.wbFollowState){wbFollowupTab=ds.wbFollowState;query='';render();}if(ds.wbAdoptIntent){wbAdoptionIntent=ds.wbAdoptIntent;query='';render();}if(ds.wbState){wbBusinessTab[page]=ds.wbState;query='';render();}
+ if(ds.wbLoan){wbLoanTab=ds.wbLoan;query='';render();}
  if(ds.wbChannel){wbSaleChannel=ds.wbChannel;query='';render();}
  if(ds.wbMonthType){wbMonthlyCategory=ds.wbMonthType;wbRefresh();}
  if(ds.wbDirection){wbLedgerDirection=ds.wbDirection;render();}

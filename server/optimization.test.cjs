@@ -38,6 +38,7 @@ test('SQL lists: stable pages, literal search, filters, grouped stock, follow-up
   assert.deepEqual(list('cats',{tab:'已领养'}).records.map(c=>c.id),['CAT-3']);
   assert.equal(list('cats',{tab:'全部'}).total,137);
   state.rescue=[{id:'R-HOSP',cat:'猫10',catId:'CAT-10',status:'就医中'},{id:'R-GONE',cat:'猫0',catId:'CAT-0',status:'就医中'}];state.sterilization=[{id:'S-HOSP',cat:'猫20',catId:'CAT-20',status:'住院中'}];store.transaction(()=>store.save(state,3));assert.deepEqual(list('cats',{tab:'住院中'}).records.map(c=>c.id),['CAT-10','CAT-20']);
+  state.loans=Array.from({length:24},(_,i)=>({id:'LOAN-FILTER-'+i,itemId:'ITEM-0',borrower:'借用人',returnedDate:i<12?'':domain.day()}));store.transaction(()=>store.save(state,4));assert.equal(list('loans',{loanState:'未归还'}).total,12);assert.equal(list('loans',{loanState:'已归还'}).total,12);assert.equal(list('loans',{loanState:'未归还',page:2}).records.length,2);assert.ok(list('loans',{loanState:'已归还'}).records.every(r=>r.returnedDate));assert.throws(()=>list('loans',{loanState:'其他'}));
 
  }finally{store.close();fs.rmSync(directory,{recursive:true,force:true});}
 });

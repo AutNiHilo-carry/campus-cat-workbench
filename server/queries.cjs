@@ -27,6 +27,7 @@ function listRecords(store,collection,params,user){
  exact('status',get('status'));
  if(collection==='inventory')exact('group',get('group'));
  if(collection==='sales')exact('channel',get('channel'));
+ if(collection==='loans'&&get('loanState')){assert(['未归还','已归还'].includes(get('loanState')),'无效借还分类');add(`COALESCE(${field('returnedDate')},'')${get('loanState')==='已归还'?"<>":"="}''`);}
  if(collection==='movements'&&get('group'))add(`(${field('itemId')} IS NULL OR ${field('itemId')}='' OR EXISTS(SELECT 1 FROM records i WHERE i.collection='inventory' AND i.id=${field('itemId')} AND json_extract(i.body,'$.group')=?))`,get('group'));
  const tab=get('tab');
  if(['events','sponsors'].includes(collection)){if(collection==='events'&&tab==='即将开展'){add(`${field('date')}>=? AND ${field('status')} NOT IN ('已完成','已取消')`,today());}else if(tab&&tab!=='全部'){assert(domain.outreachStates[collection].includes(tab),'无效活动或赞助状态');exact('status',tab);}if(get('eventId'))exact('eventId',get('eventId'));}
