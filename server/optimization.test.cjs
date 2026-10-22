@@ -30,6 +30,9 @@ test('SQL lists: stable pages, literal search, filters, grouped stock, follow-up
   const stock=list('inventory',{group:'日常',grouped:1,pageSize:6});assert.equal(stock.total,9);assert.equal(stock.recordTotal,17);assert.equal(stock.records.length,12);assert.equal(list('inventory',{group:'日常',grouped:1,pageSize:6,page:2}).records.length,5);
   assert.equal(list('adoption',{tab:'推进中',intent:'有意向领养人'}).records[0].id,'ADOPT-INTENT');assert.equal(list('adoption',{tab:'已领养',followup:'待回访'}).records[0].id,'ADOPT-VISIT');assert.equal(list('adoption',{tab:'已领养',followup:'已回访'}).records[0].id,'ADOPT-DONE');
   const member={id:'member',role:'member'};assert.equal(list('finance',{},member).total,1);assert.equal(list('finance',{q:'BILL-PRIVATE'},member).total,0);assert.deepEqual(list('adoption',{},member).records[0].agreements,[]);
+  assert.equal(list('adoption',{q:'private-contract'},admin).total,1);
+  for(const role of ['member','finance','viewer'])assert.equal(list('adoption',{q:'private-contract'},{id:role,role}).total,0,'search must not reveal hidden agreement metadata');
+  assert.equal(list('adoption',{q:'private-contract'},{id:'adoption',role:'adoption'}).total,1);
  }finally{store.close();fs.rmSync(directory,{recursive:true,force:true});}
 });
 test('record API and incremental sync: permissions, conflicts, derived records and replay',async()=>{

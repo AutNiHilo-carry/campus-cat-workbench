@@ -1,28 +1,23 @@
 大学猫协一站通 · Campus Cat Workbench
-使用前授权声明 / Prior Written Authorization Required
+使用前联系许可 / Contact Before Use License
 
 Copyright (c) 2026 复旦大学爱和猫协
-All rights reserved. 保留所有权利。
 
 1. 适用范围
-本声明适用于自本声明首次加入的提交起，项目权利人发布且有权按本声明授权的原创代码、文档与项目资源。第三方组件及已按其他许可证授予权利的内容除外。
+本许可适用于项目权利人发布且有权许可的原创代码、文档与项目资源。第三方组件及此前已按其他有效许可证授予权利的内容，依各自许可处理。
 
-2. 使用前取得授权
-除适用法律、代码托管平台条款或先前有效许可另有规定外，任何个人或组织在运行、部署、修改、集成、再分发、销售本项目，或向第三方提供基于本项目的服务之前，均须事先取得复旦大学爱和猫协的明确书面授权。公益、非营利、校内、教学或商业用途均不自动获得使用许可。
+2. 使用许可与联系条件
+在首次运行、部署、修改、集成或再分发本项目之前，请通过微信 HaruAurora_Carry 联系维护方，说明使用主体与用途。发送上述联系信息即满足本项条件，无需等待回复或另行取得书面批准；无需就每次更新重复联系。本许可本身不收取许可费。
+满足联系条件并保留本许可及相关版权声明后，允许复制、运行、部署、修改、集成和再分发本项目，允许公益、校内、教学及商业用途。再分发时应将本许可一并提供给接收方；接收方首次使用前同样应履行联系条件。
+查看源码及代码托管平台条款允许的 Fork 不要求事先联系。适用法律、平台条款或先前有效许可另有规定的权利不受本许可限制。
 
-3. 申请渠道与授权范围
-请通过微信公众号联系复旦大学爱和猫协申请授权。授权应明确被授权主体、用途、版本、范围和期限，以及是否允许修改、再分发或商业使用。未明确授予的权利仍由相应权利人保留。
+3. 版权与署名
+项目版权归复旦大学爱和猫协所有。复制和再分发时应保留项目及第三方组件的版权和许可声明；修改版应说明作出修改，不得暗示已获协会背书。
 
-4. 源码公开不等于使用授权
-公开展示本项目源码，以及平台提供的查看或 Fork 功能，不构成超出平台条款、适用法律或有效许可范围的运行、部署、再分发或商业使用授权。取得软件副本、关注公众号或提交申请本身均不等于已获授权。
+4. 历史版本与第三方内容
+本许可不追溯撤销此前已合法取得的 MIT 或其他有效许可。历史 MIT 文本见 LICENSES/MIT-HISTORICAL.txt。第三方独立许可证见 THIRD_PARTY_NOTICES.md。
 
-5. 历史版本与第三方内容
-本声明不追溯撤销此前已合法取得的 MIT 或其他有效许可。历史 MIT 版本仍按其发布时的许可证处理，历史文本见 LICENSES/MIT-HISTORICAL.txt。本声明不限制第三方组件依其独立许可证授予的权利；详见 THIRD_PARTY_NOTICES.md。
+5. 责任说明
+在适用法律允许的范围内，本项目按现状提供，不作明示或默示担保，包括适销性、特定用途适用性及不侵权担保。权利人或贡献者不对因使用本项目产生的索赔、损失或其他责任承担责任，但法律不允许排除的责任除外。
 
-6. 声明保留
-在被授权范围内复制或分发时，应保留项目和相关第三方的版权及许可声明，除非另有合法且明确的书面约定。
-
-7. 责任说明
-在适用法律允许的范围内，本项目按现状提供，不作明示或默示担保。具体使用、支持与责任安排以适用法律和双方另行达成的有效授权约定为准。
-
-English summary: This is an authorization-required source-available project, not an open-source license. Except where applicable law, hosting-platform terms, or a prior valid license provides otherwise, obtain prior written authorization from 复旦大学爱和猫协 before using, deploying, modifying, integrating, redistributing, selling, or offering services based on the covered project. Prior valid MIT grants and independent third-party licenses are not revoked or restricted by this notice. Contact the association through its WeChat official account for permission. The Chinese text governs this notice.
+English summary: Before first running, deploying, modifying, integrating or redistributing the covered project, send the maintainer your identity or organization and intended use via WeChat: HaruAurora_Carry. Sending this notice satisfies the contact condition; no reply or written approval is required. Subject to this condition and preservation of copyright and license notices, copying, use, deployment, modification, integration and redistribution are permitted, including commercial use, without a license fee. Include this license when redistributing; recipients are subject to the same first-use contact condition. Source viewing and platform-permitted forks do not require prior contact. Prior valid licenses and independent third-party licenses remain unaffected. The software is provided as is, without warranty, to the extent permitted by law. The Chinese text governs this license.

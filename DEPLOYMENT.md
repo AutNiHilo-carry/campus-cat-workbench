@@ -75,3 +75,7 @@ node server/ops.cjs restore --source /受控位置/backup-时间 --target /新�
 当前适用于小规模内部协作，单次上传图片5MB、协议20MB；附件总量默认1GiB，界面 JSON 恢复最多150MB请求。列表已使用服务端分页，但首次仍读取完整业务快照用于关联操作。更大规模需要评估独立数据库/对象存储和压测，再扩容；当前没有邮件找回密码或自动异地备份。
 
 参考：[Node.js SQLite](https://nodejs.org/docs/latest-v24.x/api/sqlite.html)、[Docker Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)、[Caddy 自动 HTTPS](https://caddyserver.com/docs/automatic-https)。
+
+## 测试 Demo 的上线边界
+
+本项目仍是轻量级测试 Demo，功能及工程化尚不完善，不承诺生产稳定性或数据零丢失。首次试用请使用虚构或脱敏资料；部署到真实环境前应自行验证 HTTPS、权限、恢复、负载与数据保护安排。账号恢复见 [ACCOUNT-RECOVERY.md](ACCOUNT-RECOVERY.md)，自动化隔离恢复演练及实际环境验证步骤见 [RECOVERY-DRILL.md](RECOVERY-DRILL.md)。

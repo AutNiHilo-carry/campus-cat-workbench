@@ -2,7 +2,6 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const crypto=require('node:crypto');
-const {promisify}=require('node:util');
 const {Store,COLLECTIONS}=require('./store.cjs');
 const {engine,root}=require('./engine.cjs');
 const V=require('./validation.cjs');
@@ -10,12 +9,10 @@ const {configuration}=require('./config.cjs');
 const S=require('./security.cjs');
 const {listRecords,visibleRecord}=require('./queries.cjs');
 const {Backups}=require('./backups.cjs');
-const scrypt=promisify(crypto.scrypt);
+const {passwordInput,passwordHash,passwordMatches,replacePassword}=require('./passwords.cjs');
 const hash=value=>crypto.createHash('sha256').update(value).digest('hex');
 const publicFiles=new Set(['shared-domain.js','backend-client.js','backend.css','login.html','index.html','seed.js','management-data.js','workbench-model.js','workbench-ui.js','stories.js','workspace.js','style.css','management.css','workbench.css','stories.css','mobile.css','vendor/pinyin-pro-3.29.5.js','assets/aihe-logo.png','assets/default-cat-avatars-v4.png']);
 const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png'};
-async function passwordHash(password){const salt=crypto.randomBytes(16).toString('hex');return salt+':'+(await scrypt(password,salt,64,{N:32768,r:8,p:1,maxmem:64*1024*1024})).toString('hex');}
-async function passwordMatches(password,stored){const [salt,digest]=stored.split(':');const actual=await scrypt(password,salt,64,{N:32768,r:8,p:1,maxmem:64*1024*1024});const expected=Buffer.from(digest,'hex');return actual.length===expected.length&&crypto.timingSafeEqual(actual,expected);}
 function userInput(value){V.assert(value&&typeof value.username==='string'&&/^[a-zA-Z0-9_.-]{3,40}$/.test(value.username),'用户名需为3至40位字母、数字、下划线或连字符');V.assert(typeof value.name==='string'&&value.name.trim().length>=1&&value.name.length<=40,'请填写显示名称（40字以内）');V.assert(typeof value.password==='string'&&value.password.length>=10&&value.password.length<=128,'密码需为10至128位');}
 async function body(req,limit=5*1024*1024){const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>limit)V.fail('请求内容超过限制',413);chunks.push(chunk);}return Buffer.concat(chunks);}
 async function jsonBody(req,limit){V.assert((req.headers['content-type']||'').split(';')[0]==='application/json','请使用 JSON 请求',415);try{const value=JSON.parse((await body(req,limit)).toString('utf8'));S.validateJson(value);V.assert(value&&typeof value==='object'&&!Array.isArray(value),'请提交 JSON 对象');return value;}catch(e){if(e.status)throw e;V.fail('JSON 格式有误');}}
@@ -71,13 +68,33 @@ function createApp(options={}){
        }
        const user=db.prepare('SELECT * FROM users WHERE username=? COLLATE NOCASE').get(value.username);
        const matches=await passwordMatches(value.password,user?.password||'00000000000000000000000000000000:'+ '00'.repeat(64));
-       V.assert(user&&!user.disabled&&matches,'用户名或密码错误',401);
-       success=true;return send(res,200,signIn(res,user));
+       const live=user&&db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+       V.assert(live&&!live.disabled&&matches&&live.password===user.password,'用户名或密码错误',401);
+       success=true;return send(res,200,signIn(res,live));
        }finally{release(success);}
      }
      if(route.startsWith('/api/')){
        const s=session(req);V.assert(s,'请先登录',401);const user={id:s.user_id,username:s.username,name:s.name,role:s.role};
        if(!['GET','HEAD'].includes(method))V.assert(req.headers['x-csrf-token']===s.csrf,'登录校验已失效，请刷新页面',403);
+       const resetMatch=route.match(/^\/api\/users\/([a-f0-9-]+)\/password$/);
+       if(method==='POST'&&(route==='/api/password'||resetMatch)){
+         if(resetMatch)V.assert(user.role==='admin','仅管理员可重置其他账号密码',403);
+         const v=await jsonBody(req);passwordInput(v.currentPassword);passwordInput(v.newPassword);
+         const release=limiter.enter(S.clientAddress(req,config),user.username);let success=false;
+         try{
+           const actor=db.prepare('SELECT * FROM users WHERE id=?').get(user.id);
+           V.assert(await passwordMatches(v.currentPassword,actor.password),'当前密码错误',403);
+           const target=resetMatch?db.prepare('SELECT * FROM users WHERE id=?').get(resetMatch[1]):actor;
+           V.assert(target&&!target.disabled,'账号不存在或已停用',404);
+           V.assert(!resetMatch||target.id!==user.id,'修改本人密码请使用修改密码入口');
+           V.assert(!await passwordMatches(v.newPassword,target.password),'新密码不能与旧密码相同');
+           const password=await passwordHash(v.newPassword);
+           store.transaction(()=>{
+             const live=session(req);V.assert(live&&(!resetMatch||live.role==='admin')&&db.prepare('SELECT password FROM users WHERE id=?').get(user.id)?.password===actor.password,'登录状态已变化，请重新登录',401);
+             replacePassword(db,target,password,user,resetMatch?'管理员重置密码':'修改本人密码');
+           });cached=null;success=true;return send(res,200,{ok:true,reauthenticate:!resetMatch},!resetMatch?{'Set-Cookie':'danmiao_session='+cookieFlags+'; Max-Age=0'}:{});
+         }finally{release(success);}
+       }
        if(route==='/api/system-backup'&&method==='POST'){V.assert(user.role==='admin','仅管理员可创建系统备份',403);await backups.runNow();return send(res,200,{ok:true,...backups.status()});}
        if(route==='/api/backup-status'&&method==='GET'){V.assert(user.role==='admin','仅管理员可查看备份状态',403);return send(res,200,backups.status());}
        if(route==='/api/logout'&&method==='POST'){db.prepare('DELETE FROM sessions WHERE token_hash=?').run(s.token_hash);return send(res,200,{ok:true},{'Set-Cookie':'danmiao_session='+cookieFlags+'; Max-Age=0'});}

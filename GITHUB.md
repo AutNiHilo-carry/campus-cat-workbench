@@ -1,8 +1,8 @@
 # 获取与复用项目
 
-大学猫协一站通由复旦大学爱和猫协维护，采用使用前授权声明；源码公开展示不等于已取得使用授权。
+大学猫协一站通由复旦大学爱和猫协维护，采用使用前联系许可。
 
-仓库：[AutNiHilo-carry/campus-cat-workbench](https://github.com/AutNiHilo-carry/campus-cat-workbench)。运行、部署、二次开发或再分发前，请先通过微信公众号取得协会书面授权。平台自身允许的查看或 Fork 权利不受本声明扩大或缩减。
+仓库：[AutNiHilo-carry/campus-cat-workbench](https://github.com/AutNiHilo-carry/campus-cat-workbench)。运行、部署、二次开发或再分发前，请先联系微信 `HaruAurora_Carry`，说明使用主体与用途；发送联系信息后即可使用，无需等待回复或书面批准。平台自身允许的查看或 Fork 权利不受本声明扩大或缩减。
 
 ```sh
 git clone https://github.com/AutNiHilo-carry/campus-cat-workbench.git

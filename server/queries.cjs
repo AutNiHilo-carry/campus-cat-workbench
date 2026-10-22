@@ -17,7 +17,11 @@ function listRecords(store,collection,params,user){
  function exact(name,value){if(value)add(field(name)+'=?',value);}
  add(`coalesce(${field('deletedAt')},'')=''`);
  if(collection==='finance'&&!financeAccess(user))add(`${field('flow')}='个人垫付' AND ${field('createdBy')}=?`,user.id);
- if(q){db.function('danmiao_lower',{deterministic:true},v=>String(v??'').toLowerCase());add('instr(danmiao_lower(r.body),?)>0',q.toLowerCase());}
+ if(q){
+  // Search the same projection returned to this actor, including counts and target pages.
+  db.function('danmiao_search_visible',text=>JSON.stringify(visibleRecord(collection,JSON.parse(text),user)).toLowerCase());
+  add('instr(danmiao_search_visible(r.body),?)>0',q.toLowerCase());
+ }
  exact('status',get('status'));
  if(collection==='inventory')exact('group',get('group'));
  if(collection==='sales')exact('channel',get('channel'));

@@ -43,8 +43,21 @@ function restore(source,target){
   for(const [name]of entries)fs.copyFileSync(path.join(source,name),path.join(target,name),fs.constants.COPYFILE_EXCL);
   return target;
 }
-if(require.main===module){
+async function recoverAdmin(dataDir,username,passwordFile){
+  if(!fs.existsSync(path.join(path.resolve(dataDir),'workbench.sqlite')))throw new Error('数据库不存在');
+  if(fs.statSync(passwordFile).size>1024)throw new Error('密码文件过大');
+  const {passwordInput,passwordHash,replacePassword}=require('./passwords.cjs');
+  const password=fs.readFileSync(passwordFile,'utf8').replace(/\r?\n$/,'');passwordInput(password);
+  const {Store}=require('./store.cjs'),store=new Store(dataDir,{seedMode:'empty'});
   try{
+    const target=store.db.prepare("SELECT * FROM users WHERE username=? COLLATE NOCASE AND role='admin' AND disabled=0").get(username);
+    if(!target)throw new Error('找不到启用中的管理员账号');
+    const hash=await passwordHash(password);
+    store.transaction(()=>replacePassword(store.db,target,hash,{id:'local-recovery',name:'本机管理员恢复'},'本机恢复管理员密码'));
+  }finally{store.close();}
+}
+if(require.main===module){
+  (async()=>{try{
     const [command,...args]=process.argv.slice(2),option=key=>args[args.indexOf(key)+1];
     if(command==='setup-token'){
       const destination=path.resolve(args[0]||'secrets/setup-token.txt');fs.mkdirSync(path.dirname(destination),{recursive:true,mode:0o700});fs.writeFileSync(destination,crypto.randomBytes(32).toString('hex'),{flag:'wx',mode:0o600});console.log('初始化口令已生成：'+destination+'（请本机读取，不要提交到 GitHub）');
@@ -54,7 +67,11 @@ if(require.main===module){
     }else if(command==='restore'){
       if(!args.includes('--source')||!args.includes('--target')||!option('--source')||!option('--target'))throw new Error('请指定 --source 备份目录 --target 新数据目录');
       console.log('已恢复到新目录：'+restore(option('--source'),option('--target'))+'。停服后切换 DANMIAO_DATA_DIR，再启动服务。');
-    }else throw new Error('用法：node server/ops.cjs setup-token [路径] | backup --target 新目录 | restore --source 备份目录 --target 新数据目录');
-  }catch(e){console.error(e.message);process.exitCode=1;}
+    }else if(command==='recover-admin'){
+      if(!args.includes('--username')||!args.includes('--password-file')||!option('--username')||!option('--password-file'))throw new Error('请指定 --username 管理员用户名 --password-file 本机密码文件');
+      await recoverAdmin(process.env.DANMIAO_DATA_DIR||path.join(__dirname,'..','data'),option('--username'),option('--password-file'));
+      console.log('管理员密码已恢复，旧会话已撤销。请移除本机密码文件并重新登录。');
+    }else throw new Error('用法：node server/ops.cjs setup-token [路径] | backup --target 新目录 | restore --source 备份目录 --target 新数据目录 | recover-admin --username 用户名 --password-file 本机密码文件');
+  }catch(e){console.error(e.message);process.exitCode=1;}})();
 }
-module.exports={snapshot,restore};
+module.exports={snapshot,restore,recoverAdmin};

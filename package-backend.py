@@ -9,6 +9,7 @@ subprocess.run([sys.executable, str(root / "package-site.py")], check=True)
 with ZipFile(root / "danmiao-static-site.zip") as archive:
     files = set(archive.namelist())
 files.update({"package.json", ".gitignore", "start-local.cmd", "login.html", "backend-client.js", "backend.css", "LOCAL-BACKEND.md", "README.md", "REQUIREMENTS.md", "workbench-check.cjs", "workflow-check.cjs", "package-site.py", "package-backend.py"})
+files.update({"ACCOUNT-RECOVERY.md", "RECOVERY-DRILL.md"})
 files.add("server/demo-seed.json")
 files.add("LICENSES/MIT-HISTORICAL.txt")
 files.update({"Dockerfile", "compose.yaml", "Caddyfile", ".dockerignore", ".env.example", ".gitattributes", "DEPLOYMENT.md", "GITHUB.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "CONTRIBUTING.md", "SECURITY.md", "UPGRADE-NOTES.md", "PROJECT-AUDIT.md", ".github/workflows/check.yml"})
