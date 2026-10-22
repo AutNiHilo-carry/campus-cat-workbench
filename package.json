@@ -1,6 +1,6 @@
 {
   "name": "campus-cat-workbench",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "大学猫协一站通（Campus Cat Workbench）：高校猫协协作工作台，使用前请联系微信 HaruAurora_Carry",
   "engines": {
     "node": ">=24.0.0"
