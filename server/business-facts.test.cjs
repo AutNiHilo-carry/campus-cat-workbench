@@ -22,11 +22,11 @@ test('server business changes synchronize location and current foster situation'
  function save(collection,row){const before=structuredClone(state[collection].find(r=>r.id===row.id)||null),after={...before,...row};state=V.applyChanges(state,[{collection,id:after.id,before,after}],user).next;V.validateState(state,state,[]);}
  const cat={catId:'LOCATION-CAT',cat:'位置测试猫'};
  save('rescue',{...cat,id:'R-LOCATION',status:'就医中',place:'发现地点',issue:'发现情况',hospital:'第一医院',medicalDate:domain.day()});assert.equal(state.cats[0].place,'第一医院');
- save('foster',{...cat,id:'F-LOCATION',status:'寄养中',place:'寄养新地点',caregiver:'测试照护人',date:domain.day(),situation:'新的寄养情况',segments:[{place:'寄养新地点',caregiver:'测试照护人',startDate:domain.day(),endDate:'',note:'旧救助备注'}]});assert.equal(state.cats[0].place,'寄养新地点');
- save('rescue',{id:'R-LOCATION',issue:'只改发现情况'});assert.equal(state.cats[0].place,'寄养新地点');
+ save('foster',{...cat,id:'F-LOCATION',status:'寄养中',place:'寄养新地点',caregiver:'测试照护人',date:domain.day(),situation:'新的寄养情况',segments:[{place:'寄养新地点',caregiver:'测试照护人',startDate:domain.day(),endDate:'',note:'旧救助备注'}]});assert.equal(state.cats[0].place,'第一医院');
+ save('rescue',{id:'R-LOCATION',issue:'只改发现情况'});assert.equal(state.cats[0].place,'第一医院');
  save('cats',{id:'LOCATION-CAT',place:'人工新地点',health:'独立健康情况'});
  save('foster',{id:'F-LOCATION',situation:'只改寄养情况'});assert.equal(state.cats[0].place,'人工新地点');assert.equal(state.foster[0].segments[0].situation,'只改寄养情况');assert.equal(state.cats[0].health,'独立健康情况');
- save('rescue',{id:'R-LOCATION',hospital:'第二医院'});assert.equal(state.cats[0].place,'第二医院');
+ save('rescue',{id:'R-LOCATION',hospital:'第二医院',locationAction:'move'});assert.equal(state.cats[0].place,'第二医院');
  const renamed={...state.rescue[0],cat:'新猫名'};domain.syncBusinessChange(state,'rescue',state.rescue[0],renamed);assert.equal(state.cats[0].place,'第二医院');
 });
 test('discovery place defaults once and cannot be overwritten through the API',()=>{

@@ -65,7 +65,7 @@ function shape(row){
     if(!value||typeof value!=='object')return;
     for(const [key,item]of Object.entries(value)){
       if(key==='id')assert(typeof item==='string'&&/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/.test(item),'记录编号包含不允许的字符');
-      if(['photos','agreements','followups','deletedFiles','comments','aliases','lines','segments'].includes(key))assert(Array.isArray(item),'字段 '+key+' 必须是列表');
+      if(['photos','agreements','followups','deletedFiles','comments','aliases','lines','segments','hospitalHistory'].includes(key))assert(Array.isArray(item),'字段 '+key+' 必须是列表');
       if(['name','cat','catId','hospital','place','issue','caregiver','status','description','note','title','result','manualResult'].includes(key))assert(typeof item==='string','字段 '+key+' 必须是文字');
       if(Array.isArray(item))for(const entry of item){assert(entry!==null&&entry!==undefined,'列表不能包含空记录');walk(entry);}else walk(item);
     }
@@ -103,6 +103,7 @@ function applyChanges(state,changes,user){
     accepted.push({...change,after:value});
   }
   for(const change of accepted)authorizeChange(change.collection,state[change.collection].find(r=>r.id===change.id),next[change.collection].find(r=>r.id===change.id),user,next);
+  const hospitalError=domain.prepareHospitalChanges(next,state,accepted);assert(!hospitalError,hospitalError);const dischargeError=domain.prepareHospitalDischarge(next,state,accepted);assert(!dischargeError,dischargeError);const linkedDateError=domain.prepareLinkedDates(next,state,accepted);assert(!linkedDateError,linkedDateError);
   // Income is reconciled from orders even when the acting member cannot read the finance ledger.
   for(const sale of next.sales){
     const original=state.finance.find(b=>b.saleId===sale.id),linked=next.finance.filter(b=>b.saleId===sale.id);
@@ -115,8 +116,7 @@ function applyChanges(state,changes,user){
   domain.syncRefundReviews(next);
   for(const change of accepted)if(change.collection==='cats')domain.noteCatChange(next,state.cats.find(c=>c.id===change.id),next.cats.find(c=>c.id===change.id));
   for(const change of accepted){const policy=domain.recordChangeError(next,change.collection,next[change.collection].find(r=>r.id===change.id),state[change.collection].find(r=>r.id===change.id));assert(!policy,policy);}
-  for(const change of accepted){const error=domain.businessRuleError(next,change.collection,next[change.collection].find(r=>r.id===change.id),state[change.collection].find(r=>r.id===change.id));assert(!error,error);}
-  for(const change of accepted)domain.syncBusinessChange(next,change.collection,state[change.collection].find(r=>r.id===change.id),next[change.collection].find(r=>r.id===change.id));
+  for(const type of business)for(const row of next[type]){const prior=state[type].find(r=>r.id===row.id);if(same(prior,row)||row.deletedAt&&!accepted.some(c=>c.collection===type&&c.id===row.id))continue;const error=domain.businessRuleError(next,type,row,prior);assert(!error,error);domain.syncBusinessChange(next,type,prior,row);}
   domain.reconcileDerived(next);domain.reconcileLocations(next);domain.syncRefundReviews(next);
   return {next,accepted};
 }
@@ -132,7 +132,8 @@ function validateState(next,old,files){
     assert(states[c].includes(r.status),'无效业务状态');
     if(r.catId)assert(next.cats.some(cat=>cat.id===r.catId&&cat.name===r.cat),'关联猫咪档案不一致');
     if(r.cat)assert(r.catId&&next.cats.some(cat=>cat.id===r.catId),'请关联有效猫咪档案');
-    for(const key of ['admissionDate','surgeryDate','releaseDate','completedDate','medicalDate','adoptDate','lastFollowup','postDate'])if(r[key])assert(date(r[key])&&r[key]<=future,'实际日期格式有误或晚于今天');
+    for(const key of ['admissionDate','hospitalSinceDate','surgeryDate','releaseDate','completedDate','medicalDate','adoptDate','lastFollowup','postDate'])if(r[key])assert(date(r[key])&&r[key]<=future,'实际日期格式有误或晚于今天');
+    if(['rescue','sterilization'].includes(c)&&r.hospitalHistory){assert(Array.isArray(r.hospitalHistory)&&r.hospitalHistory.length<=100,'医院历史数量无效');for(const h of r.hospitalHistory){assert(h.hospital?.trim()&&date(h.endDate)&&h.endDate<=future&&(!h.startDate||date(h.startDate)&&h.startDate<=h.endDate)&&(!h.surgeryDate||date(h.surgeryDate)&&h.surgeryDate<=h.endDate),'医院历史日期或名称无效');assert(h.cost===null||h.cost===undefined||typeof h.cost==='number'&&Number.isFinite(h.cost)&&h.cost>=0&&h.cost<=1000000,'原医院费用无效');}}
     if(c==='sterilization'&&r.status==='住院中')assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'住院中必须填写医院');
     if(c==='sterilization'&&r.status==='已放归')assert(date(r.releaseDate)&&r.releasePlace?.trim()&&(!r.surgeryDate||r.releaseDate>=r.surgeryDate),'放归信息不完整');
     if(c==='rescue'&&r.status==='就医中'&&(prior?.status!=='就医中'||prior?.hospital!==r.hospital))assert(r.hospital?.trim()&&!['待确定','待补充','未填写'].includes(r.hospital),'就医中必须填写医院名称');

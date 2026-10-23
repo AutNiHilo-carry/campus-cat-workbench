@@ -112,3 +112,8 @@ summary.experience-card-head{cursor:pointer;list-style:none}summary.experience-c
 #toast{inset:auto auto 24px 50%;margin:0;border:0;width:max-content;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere;line-height:1.7;text-align:center;pointer-events:none}
 
 input.date-empty:not(:focus)::-webkit-datetime-edit{color:transparent}
+
+#toast{font-size:15px;padding:16px 26px;min-height:54px;line-height:1.8}
+.hospital-history{border-top:1px solid var(--line);margin-top:16px;padding-top:12px}.hospital-history h4{font-size:13px;margin:0 0 10px}.hospital-history article{padding:12px 14px;border-left:3px solid #b5c8bd;background:#f5f8f5;margin:8px 0;border-radius:6px}.hospital-history small{display:block;margin-top:5px;color:#7c8f82}.hospital-history p{font-size:12px;margin:6px 0}.new-business-photos{padding:16px;border:1px dashed #cad8cd;border-radius:10px}.new-business-photos h3{font-size:13px;margin:0 0 10px}[data-new-photo-preview]{font-size:12px;overflow-wrap:anywhere;color:#547263}
+
+.record-appearance{font-size:12px;color:#7b8f80;line-height:1.7;margin-top:9px;max-width:260px;white-space:normal;overflow-wrap:anywhere}

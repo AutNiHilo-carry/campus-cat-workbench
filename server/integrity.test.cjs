@@ -29,7 +29,7 @@ test('a cat cannot have duplicate active admissions or concurrent different hosp
  let s=commit(fresh(),'sterilization',{...cat,id:'S-I',status:'住院中',hospital:'医院甲',date:earlier,admissionDate:earlier});const revision=structuredClone(s);
  assert.throws(()=>commit(s,'sterilization',{...cat,id:'S-II',status:'住院中',hospital:'医院甲',date:today}),/已有绝育住院记录/);assert.throws(()=>commit(s,'sterilization',{...cat,id:'S-II',status:'住院中',hospital:'医院乙',date:today}),/已有绝育住院记录/);assert.deepEqual(s,revision);
  assert.throws(()=>commit(s,'rescue',{...cat,id:'R-I',status:'就医中',hospital:'医院乙',medicalDate:today,date:today,issue:'受伤'}),/不能同时住在不同医院/);
- s=commit(s,'rescue',{...cat,id:'R-I',status:'就医中',hospital:'医院甲',medicalDate:today,date:today,issue:'检查'});assert.equal(s.rescue[0].hospital,s.sterilization[0].hospital);assert.throws(()=>commit(s,'rescue',{id:'R-I',hospital:'医院乙'}),/不能同时住在不同医院/);
+ s=commit(s,'rescue',{...cat,id:'R-I',status:'就医中',hospital:'医院甲',medicalDate:today,date:today,issue:'检查'});assert.equal(s.rescue[0].hospital,s.sterilization[0].hospital);assert.throws(()=>commit(s,'rescue',{id:'R-I',hospital:'医院乙'}),/不能同时住在不同医院|请确认医院名称修改/);
  assert.throws(()=>commit(s,'rescue',{...cat,id:'R-II',status:'就医中',hospital:'医院甲',medicalDate:today,date:today,issue:'重复'}),/已有进行中的救助就医记录/);
  const gone=commit(fresh(),'cats',{id:cat.catId,archiveStatus:'去了喵星',memorialDate:today});for(const type of ['rescue','sterilization'])assert.throws(()=>commit(gone,type,{...cat,id:'NEW-'+type,status:type==='rescue'?'待救助':'待绝育',place:'地点',issue:'检查',date:today}),/不能开启新业务/);
 });

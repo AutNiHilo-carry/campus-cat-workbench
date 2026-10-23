@@ -26,7 +26,7 @@ run('const adoptId=data.adoption.find(a=>a.sourceFosterId===fosterId).id');
 assert.equal(call('wbBusinessSave','adoption',{cat:'测试猫',applicant:'测试领养人',status:'已退养',returnDate:day,returnDisposition:'待安置',returnPlace:'退养交接点',adoptDate:day,earlyInterval:7,regularInterval:30,owner:''},run('adoptId')),true);
 eq("data.adoption.filter(a=>a.cat==='测试猫'&&a.status==='无领养人').length",1);eq('data.foster.filter(f=>f.sourceAdoptionId===adoptId).length',1);eq("find('adoption',adoptId).status",'已退养');
 // Independent sterilization state lists, release-month filter, operation-date work archive.
-const surgery={cat:'绝育测试猫',capturer:'',status:'住院中',hospital:'测试医院',surgeryDate:'2026-09-12',cost:'123.45'};
+const surgery={cat:'绝育测试猫',capturer:'',status:'住院中',hospital:'测试医院',admissionDate:'2026-09-12',surgeryDate:'2026-09-12',cost:'123.45'};
 assert.equal(call('wbBusinessSave','sterilization',surgery),true);run('const surgeryId=data.sterilization[0].id');
 eq("data.monthly.find(w=>w.sourceType==='sterilization'&&w.sourceId===surgeryId).date",'2026-09-12');
 view('sterilization');run("wbBusinessTab.sterilization='住院中';month='2026-10'");eq('wbBusinessRows().some(r=>r.id===surgeryId)',true);
@@ -209,7 +209,7 @@ console.log('PASS: persistent photo notes, note recovery and origin-aware story 
 
 run("const rescueMigration=clone(data);rescueMigration.rescue[0].status='待响应';rescueMigration.rescue[1].status='已接手';rescueMigration.rescue[2].status='待相应';const rescueIds=rescueMigration.rescue.map(r=>r.id).join(',');wbMigrate(rescueMigration);wbMigrate(rescueMigration)");
 eq("wbStatuses.rescue.join(',')",'待救助,就医中,已结束');eq("rescueMigration.rescue.slice(0,3).every(r=>r.status==='待救助')",true);eq("rescueMigration.rescue.map(r=>r.id).join(',')",run('rescueIds'));
-run("wbCatStoryFilters.set(linkedCatId,{});");assert.match(run('wbCatStoriesPanel(linkedCatId)'),new RegExp(run("today.replaceAll('-','/')")));assert.match(run('wbCatStoriesPanel(linkedCatId)'),/data-empty="true" value=""/);
+run("wbCatStoryFilters.set(linkedCatId,{});");assert.doesNotMatch(run('wbCatStoriesPanel(linkedCatId)'),/story-date-placeholder/);assert.match(run('wbCatStoriesPanel(linkedCatId)'),/data-empty="true" value=""/);
 console.log('PASS: merged rescue statuses migrate without record loss and current-date hints keep the date filters empty.');
 
 // Dedicated inventory forms omit the opposite group's controls and never require photos.
@@ -394,9 +394,9 @@ const locationCat=run('wbFindCat("字段编辑测试猫").id');
 assert.equal(call('wbSaveCatOverview',locationCat,'place','人工确认点'),true);
 assert.equal(call('wbSaveCatOverview',locationCat,'health','精神正常'),true);
 assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'cost',{cost:99}),true);eq('wbFindCat("字段编辑测试猫").place','人工确认点');
-assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'medical',{hospital:'最新医院',surgeryDate:day}),true);eq('wbFindCat("字段编辑测试猫").place','最新医院');
-assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'最新寄养点',caregiver:'测试照护人',date:day}),true);eq('wbFindCat("字段编辑测试猫").place','最新寄养点');
-assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'capturer',{capturer:'修改历史抓捕人'}),true);eq('wbFindCat("字段编辑测试猫").place','最新寄养点');
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'medical',{hospital:'最新医院',surgeryDate:day}),false);assert.match(el('#modal-title').textContent,/确认医院/);assert.equal(call('submitHandler',{hospitalChangeKind:'transfer',hospitalTransferDate:day}),true);eq('wbFindCat("字段编辑测试猫").place','最新医院');
+assert.equal(call('wbSaveBusinessFacts','foster',run('factsFoster'),'placement',{place:'最新寄养点',caregiver:'测试照护人',date:day}),true);eq('wbFindCat("字段编辑测试猫").place','最新医院');
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('factsSurgery'),'capturer',{capturer:'修改历史抓捕人'}),true);eq('wbFindCat("字段编辑测试猫").place','最新医院');
 eq('wbFindCat("字段编辑测试猫").health','精神正常');
 call('wbCatProfile',run('wbFindCat("字段编辑测试猫")'));assert.match(el('#fields').innerHTML,/data-action="wb-cat-overview"/);
 call('wbEditCatOverview',locationCat,'health');assert.equal(run("submitHandler({health:''})"),false);eq('wbFindCat("字段编辑测试猫").health','');
@@ -496,3 +496,24 @@ run("data.cats.push({id:'C-GONE-CHOICE',name:'不可新建业务猫',archiveStat
 for(const type of ['rescue','foster','adoption','sterilization']){const fields=call('wbBusinessCatField',type,{});assert.doesNotMatch(fields,/不可新建业务猫/);call('wbEditBusiness',type);const owner=el('#fields').innerHTML.match(/<label>负责人（可留空）[\s\S]*?<\/label>/);if(owner)assert.doesNotMatch(owner[0],/ required/);}
 call('wbEditFinance');assert.equal(call('submitHandler',{title:'未付款验证',flow:'协会欠款',creditor:'测试医院',date:day,amount:'10',owner:'',receipt:'',note:'',link:''}),true);run('const optionalDebt=data.finance[0].id');eq('find("finance",optionalDebt).owner','');eq('find("finance",optionalDebt).status','待付款');assert.equal(call('wbSettleDebt',run('optionalDebt'),day,''),false);assert.equal(call('wbSettleDebt',run('optionalDebt'),day,'实际付款人'),true);
 console.log('PASS: blank optional responsibility fields, memorial cat picker exclusion and unpaid debts versus actual payment handlers.');
+
+// Failed compound profile edits must leave all identities, archives and persistence unchanged.
+run("data=wbSync(wbMigrate(migrateData(clone(initial))))");
+assert.equal(call('wbBusinessSave','adoption',{cat:'事务验证猫',status:'已领养',applicant:'领养人',adoptDate:day,owner:''}),true);run('const atomicCat=data.adoption[0].catId;const atomicBefore=JSON.stringify(data)');
+assert.equal(call('wbSaveCatProfile',{name:'不应保存的猫名',archiveStatus:'去了喵星',memorialDate:run('wbAddDays(today,-1)')},run('atomicCat')),false);eq('JSON.stringify(data)',run('atomicBefore'));eq("data.adoption[0].cat",'事务验证猫');
+for(const type of ['rescue','sterilization']){call('wbEditBusiness',type);assert.match(el('#fields').innerHTML,/name="appearance"/);assert.match(el('#fields').innerHTML,/name="newBusinessPhotos"/);assert.doesNotMatch(el('#fields').innerHTML,/保存记录后，可以在详情添加照片/);}
+assert.equal(call('wbBusinessSave','rescue',{cat:'照片救助猫',place:'校园',issue:'观察',status:'待救助',owner:'',appearance:'白猫，左耳缺口',photos:[{id:'TEST-NEW-PHOTO',name:'现场照片.png',type:'image/png'}]}),true);eq("data.rescue[0].photos[0].id",'TEST-NEW-PHOTO');eq("data.rescue[0].appearance",'白猫，左耳缺口');
+assert.equal(call('wbBusinessSave','sterilization',{cat:'照片绝育猫',place:'校园',status:'待绝育',owner:'',appearance:'橘白，花尾巴',photos:[{id:'TEST-SIGHT-PHOTO',name:'目击照片.png',type:'image/png'}]}),true);eq("wbFindCat('照片绝育猫').photos[0].id",'TEST-SIGHT-PHOTO');
+assert.equal(call('wbBusinessSave','sterilization',{cat:'转院历史猫',status:'住院中',hospital:'甲医院',admissionDate:day,surgeryDate:day,cost:260,owner:''}),true);run('const transferRecord=data.sterilization[0].id');
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('transferRecord'),'medical',{hospital:'乙医院',surgeryDate:day}),false);assert.equal(call('submitHandler',{hospitalChangeKind:'transfer',hospitalTransferDate:day}),true);eq("find('sterilization',transferRecord).hospitalHistory[0].cost",260);eq("find('sterilization',transferRecord).hospital",'乙医院');eq("wbFindCat('转院历史猫').neuterStatus",'已绝育');assert.match(call('wbExperienceCard','sterilization',run("find('sterilization',transferRecord)")),/转院前经历/);
+console.log('PASS: atomic profile failure rollback, new record photos and appearance, sighting album synchronization and preserved hospital transfer history.');
+
+assert.equal(call('wbSaveBusinessFacts','sterilization',run('transferRecord'),'medical',{hospital:'乙医院正确名称',surgeryDate:''}),false);assert.equal(call('submitHandler',{hospitalChangeKind:'correction'}),true);eq("find('sterilization',transferRecord).hospitalHistory.length",1);eq("wbFindCat('转院历史猫').place",'乙医院正确名称');
+
+assert.equal(call('wbSaveCatProfile',{name:'转院历史猫',archiveStatus:'已领养',profileRecordChoice:'profile',archiveStatusDate:day,place:'乙医院正确名称'},run("wbFindCat('转院历史猫').id")),true);eq("wbFindCat('转院历史猫').place",'乙医院正确名称');
+
+// Closing a dialog while photo upload is pending must not create a hidden business record.
+run("document.querySelector('#dialog').open=true;wbModalTitle='新增救助';let deferredPhotoResolve;wbStoryImages=()=>new Promise(resolve=>deferredPhotoResolve=resolve);const photoCancelBefore=JSON.stringify(data)");
+const cancelledPhotoSave=run("wbSubmitNewBusinessPhotos('rescue',{cat:'',place:'取消上传测试地点',issue:'测试',status:'待救助',owner:''},undefined,{files:[{name:'pending.png'}],isConnected:true})");
+run("document.querySelector('#dialog').open=false;wbModalTitle='';deferredPhotoResolve([{id:'CANCELLED-PHOTO',name:'pending.png',type:'image/png'}])");
+cancelledPhotoSave.then(result=>{assert.equal(result,false);eq('JSON.stringify(data)',run('photoCancelBefore'));console.log('PASS: cancelling a pending new-record photo upload leaves business data unchanged.');}).catch(error=>{console.error(error);process.exitCode=1;});

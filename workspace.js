@@ -16,7 +16,7 @@ if(!window.DanmiaoBackend)try{localStorage.setItem('miaolin-demo-v1',JSON.string
 let page='overview',query='',filter='',month=today.slice(0,7),inventoryGroup='日常',inventoryView='stock',historyView='audit',submitHandler=null;
 function toast(message){const notice=$('#toast');notice.textContent=message;notice.classList.add('visible');clearTimeout(window.toastTimer);if(typeof notice.showPopover==='function'){notice.hidePopover();notice.showPopover();}else if(typeof document.body?.append==='function'){($('#dialog').open?$('#dialog'):document.body).append(notice);}window.toastTimer=setTimeout(()=>{notice.classList.remove('visible');notice.hidePopover?.();},5000)}
 function persist(message,audit){
- wbSync(data,today);
+ wbSync(data,today);if(wbAtomicDepth){wbAtomicQueue.push({message,audit});return;}
  const stockNow=new Date().toISOString();for(const item of data.inventory){const fingerprint=wbStockFingerprint(item);if(wbStockFingerprints.get(item.id)!==fingerprint)item.updatedAt=stockNow;wbStockFingerprints.set(item.id,fingerprint);}
  if(window.DanmiaoBackend){render();window.DanmiaoBackend.commit(data,message);return;}
  if(message)data.activities.unshift({name:'共用测试账号',text:message,time:new Date().toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})});
@@ -25,17 +25,19 @@ function persist(message,audit){
  try{localStorage.setItem('miaolin-demo-v1',JSON.stringify(data));persistence=true}catch{persistence=false}
  render();toast(persistence?(message||'已保存'):'浏览器存储空间不足，修改仅保留在当前页面；请立即导出数据');
 }
+function wbMergeState(target,source){for(const key of Object.keys(target))if(!Object.hasOwn(source,key))delete target[key];for(const [key,value] of Object.entries(source)){if(Array.isArray(value)&&value.every(r=>r&&typeof r==='object'&&r.id)){const prior=new Map((target[key]||[]).map(r=>[r.id,r]));target[key]=value.map(r=>{const old=prior.get(r.id);if(!old)return clone(r);for(const k of Object.keys(old))if(!Object.hasOwn(r,k))delete old[k];Object.assign(old,clone(r));return old;});}else target[key]=clone(value);}}
+let wbAtomicDepth=0,wbAtomicQueue=[];
+function wbAtomicSave(action){if(wbAtomicDepth)return action();const original=data,queued=wbAtomicQueue;data=clone(original);wbAtomicDepth=1;wbAtomicQueue=[];try{const result=action();if(!result)return result;const error=DanmiaoDomain.finalBusinessError(data,original,today);if(error)return wbError(error);const draft=data,events=wbAtomicQueue;data=original;wbMergeState(data,draft);wbAtomicDepth=0;for(const event of events.slice(0,-1))if(event.audit)data.audit.unshift({id:uid('H'),time:new Date().toISOString(),actor:'共用测试账号',...event.audit});if(events.length)persist(events.at(-1).message,events.at(-1).audit);return result;}finally{data=original;wbAtomicDepth=0;wbAtomicQueue=queued;}}
 function writeRecord(type,values,id){
  const row=find(type,id),before=clone(row);if(id&&(!row||row.deletedAt))return wbError('记录已删除或不可用，请返回列表刷新');
  const candidate={...clone(row||{}),...values,id:id||uid(type)};
  if(type==='finance'){const error=DanmiaoDomain.prepareFinanceChange(before,candidate,today);if(error)return wbError(error);}
- const scratch=clone(data),index=scratch[type].findIndex(r=>r.id===candidate.id),staged=clone(candidate);if(index<0)scratch[type].unshift(staged);else scratch[type][index]=staged;
- if(type==='cats')DanmiaoDomain.noteCatChange(scratch,before,staged);
- if(businessTypes.includes(type)){const error=DanmiaoDomain.businessRuleError(scratch,type,staged,before,today);if(error)return wbError(error);DanmiaoDomain.syncBusinessChange(scratch,type,before,staged);}
- DanmiaoDomain.sync(scratch,today);let error=DanmiaoDomain.recordChangeError(scratch,type,scratch[type].find(r=>r.id===candidate.id),before,today);if(!error)for(const cat of scratch.cats.filter(c=>!c.deletedAt)){error=DanmiaoDomain.memorialDateError(scratch,cat,today);const priorCat=find('cats',cat.id);if(error&&priorCat&&DanmiaoDomain.memorialDateSignature(scratch,cat)===DanmiaoDomain.memorialDateSignature(data,priorCat))error='';if(error)break;}if(error)return wbError(error);
- if(row)Object.assign(row,candidate);else data[type].unshift(candidate);const after=row||data[type][0];
- if(type==='cats')DanmiaoDomain.noteCatChange(data,before,after);if(businessTypes.includes(type))DanmiaoDomain.syncBusinessChange(data,type,before,after);
- persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name||after.place||'未建档事项'}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});return after;
+ const scratch=clone(data),index=scratch[type].findIndex(r=>r.id===candidate.id);if(index<0)scratch[type].unshift(candidate);else scratch[type][index]=candidate;
+ const changes=[{type,id:candidate.id}];let error=DanmiaoDomain.prepareHospitalChanges(scratch,data,changes,today)||DanmiaoDomain.prepareHospitalDischarge(scratch,data,changes,today)||DanmiaoDomain.prepareLinkedDates(scratch,data,changes);if(error)return wbError(error);
+ if(type==='cats')DanmiaoDomain.noteCatChange(scratch,before,candidate);
+ for(const t of businessTypes)for(const staged of scratch[t]){const prior=data[t].find(r=>r.id===staged.id);if(JSON.stringify(staged)===JSON.stringify(prior))continue;error=DanmiaoDomain.businessRuleError(scratch,t,staged,prior,today);if(error)return wbError(error);DanmiaoDomain.syncBusinessChange(scratch,t,prior,staged);}
+ DanmiaoDomain.sync(scratch,today);error=DanmiaoDomain.recordChangeError(scratch,type,scratch[type].find(r=>r.id===candidate.id),before,today)||DanmiaoDomain.finalBusinessError(scratch,data,today);if(error)return wbError(error);
+ wbMergeState(data,scratch);const after=find(type,candidate.id);persist(`${row?'更新':'新增'}了${after.title||after.cat||after.name||after.place||'未建档事项'}的${names[type]}记录`,{action:row?'修改':'新增',type,recordId:after.id,before,after:clone(after)});return after;
 }
 
 function badge(text){return `<span class="badge ${/待|预约/.test(text)?'orange':/就医|试养|垫付/.test(text)?'purple':/逾期|不足/.test(text)?'red':''}">${esc(text)}</span>`}

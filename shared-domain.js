@@ -104,6 +104,7 @@ function businessRuleError(store,type,r,prior,asOf=day()){
  if(!businessTypes.includes(type)||!r)return '';
  const policy=businessIntegrityError(store,type,r,prior,asOf);if(policy)return policy;
  if(r.deletedAt)return '';
+ if(['rescue','sterilization'].includes(type)&&r.appearance!==undefined&&(typeof r.appearance!=='string'||r.appearance.length>200))return '外貌描述最多200字';
  const changed=k=>!prior||JSON.stringify(prior[k])!==JSON.stringify(r[k]);
  const cat=wbActive(store,'cats').find(c=>r.catId?c.id===r.catId:c.name===r.cat);
  const ongoing={rescue:['待救助','就医中'],foster:['待安置','寄养中'],adoption:['无领养人','有意向领养人','已领养'],sterilization:['待绝育','住院中']}[type]||[];
@@ -174,6 +175,7 @@ function syncBusinessChange(store,type,before,after){
  if(!place||['待确定','待确认','待补充','未填写','待安置'].includes(place))return;
  if(before&&(before.catId&&after.catId?before.catId===after.catId:before.cat===after.cat)&&before.status===after.status&&before.outcome===after.outcome&&String(destination(before)||'').trim()===place)return;
  const cat=wbActive(store,'cats').find(c=>after.catId?c.id===after.catId:c.name===after.cat);
+ if(['foster','adoption'].includes(type)&&['rescue','sterilization'].some(t=>wbActive(store,t).some(x=>sameCat(x,after)&&medicalActive(t,x))))return;
  if(cat&&catCategory(store,cat)!=='去了喵星')pushLocation(store,cat,{kind:'business',sourceType:type,sourceId:after.id,place,changeKey:JSON.stringify([after.status,after.outcome||'',place,after.date||'',after.adoptDate||'',after.releaseDate||''])});
 }
 function wbSync(store,asOf=day()){
@@ -197,7 +199,7 @@ function wbSync(store,asOf=day()){
  for(const r of active('rescue'))if(['就医中','已结束'].includes(r.status))add('rescue',r,r.medicalDate||(r.status==='就医中'?r.date||asOf:r.completedDate||r.date),(r.cat||r.place||'未建档猫咪')+(r.status==='已结束'?' · 救助结束':' · 救助就医'),r.status==='已结束'?r.outcome||r.issue||'已结束':r.issue||'已就医，继续跟进');
  for(const r of active('foster'))if(r.status==='已结束')add('foster',r,r.completedDate||r.endDate||r.date,(r.cat||'未命名猫咪')+' · 寄养结束',r.outcome||r.note||'已结束');
  for(const r of active('adoption'))if(['已领养','已退养'].includes(r.status))add('adoption',r,r.adoptDate,(r.cat||'未命名猫咪')+' · 领养',r.applicant?'领养人：'+r.applicant:'已建立独立领养经历');
- for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status)&&wbValidDate(r.surgeryDate)&&r.surgeryDate<=asOf)add('sterilization',r,r.surgeryDate||(wbValidDate(r.date)&&r.date<=asOf?r.date:asOf),r.cat+' · 绝育手术',r.hospital||'住院中，继续跟进放归');
+ for(const r of active('sterilization'))if(['住院中','已放归'].includes(r.status)){const operation=surgeryFacts(r).find(x=>x.surgeryDate<=asOf);if(operation)add('sterilization',r,operation.surgeryDate,r.cat+' · 绝育手术',operation.hospital||'住院中，继续跟进放归');}
  for(const r of active('movements'))if(r.type==='盘点')add('movements',r,r.date,r.itemName+' · 物资盘点','实盘在库 '+r.quantity+' '+(store.inventory.find(i=>i.id===r.itemId)?.unit||''));
  const saleBills=active('finance'),getBill=s=>saleBills.find(b=>b.saleId===s.id);
  const onlineMonths=[...new Set(active('sales').filter(s=>s.channel==='线上').map(s=>s.date.slice(0,7)))];
@@ -250,19 +252,20 @@ function deletionError(store,type,row){
  if(businessTypes.includes(type)&&(businessLinks(store,type,row.id).length>1||type==='adoption'&&(row.status==='已领养'||row.agreements?.length||row.followups?.length)))return '已有后续关联或归档资料，不能直接删除；请先核对关联记录';
  return '';
 }
-function memorialDateSignature(store,cat){return JSON.stringify([cat?.archiveStatus,cat?.memorialDate,cat?catBusinesses(store,cat).map(x=>[x.type,x.row.id,x.row.deletedAt||'',x.row.adoptDate,x.row.medicalDate,x.row.admissionDate,x.row.surgeryDate,x.row.releaseDate,x.row.completedDate,(x.row.followups||[]).map(e=>e.date),(x.row.segments||[]).map(e=>[e.startDate,e.endDate])]):[]]);}
+function memorialDateSignature(store,cat){return JSON.stringify([cat?.archiveStatus,cat?.memorialDate,cat?catBusinesses(store,cat).map(x=>[x.type,x.row.id,x.row.deletedAt||'',x.row.adoptDate,x.row.medicalDate,x.row.admissionDate,x.row.surgeryDate,x.row.hospitalSinceDate,x.row.hospitalHistory,x.row.releaseDate,x.row.completedDate,(x.row.followups||[]).map(e=>e.date),(x.row.segments||[]).map(e=>[e.startDate,e.endDate])]):[]]);}
 function memorialDateError(store,cat,asOf=day()){
  const gone=catCategory(store,cat)==='去了喵星';if(!gone)return '';
  const date=cat.memorialDate||catBusinesses(store,cat).filter(x=>['rescue','foster'].includes(x.type)&&!x.row.deletedAt&&['去喵星','死亡'].includes(x.row.outcome)).map(x=>x.row.completedDate).filter(Boolean).sort()[0];if(!wbValidDate(date))return '';
  const actual=[];for(const {type,row:r}of catBusinesses(store,cat).filter(x=>!x.row.deletedAt)){
   if(type==='adoption'){actual.push(r.adoptDate,...(r.followups||[]).map(e=>e.date));}
   if(type==='rescue')actual.push(r.medicalDate,r.completedDate);
-  if(type==='sterilization')actual.push(r.admissionDate,r.surgeryDate,r.releaseDate);
+  if(type==='sterilization')actual.push(r.admissionDate,r.surgeryDate,r.releaseDate,...(r.hospitalHistory||[]).flatMap(x=>[x.startDate,x.endDate,x.surgeryDate]),r.hospitalSinceDate);
   if(type==='foster')for(const segment of r.segments||[])actual.push(segment.startDate,segment.endDate);
  }
  return actual.some(d=>wbValidDate(d)&&d<=asOf&&d>date)?'去喵星日期早于已登记的实际业务或回访日期，请先核对相关记录':'';
 }
 function financeChangeError(store,r,before,asOf=day()){
+ if(r.adjustmentSign!==undefined&&r.adjustmentSign!==1&&!r.adjustmentOf)return '负向账目必须关联有效原单，普通账目不能使用调整符号';
  if(r.flow==='协会欠款'&&r.status==='已结清'&&before?.status!=='已结清'&&!String(r.owner||'').trim())return '请填写实际付款经办人';
  if(r.deletedAt)return deletionError(store,'finance',before||r);
  if(before?.reviewDate&&before.status!=='待审核'&&reviewKey(before)===reviewKey(r)&&r.reviewDate!==before.reviewDate)return '实际审核日期已归档，不能在付款或备注修改时改写';
@@ -286,11 +289,19 @@ function businessIntegrityError(store,type,r,before,asOf=day()){
  const identityChanged=before&&!sameCat(before,r);
  if(identityChanged&&businessLinks(store,type,r.id).some(x=>x.type!==type||x.row.id!==r.id? !!(x.row.cat||x.row.catId)&&!sameCat(x.row,r):false))return '已有其他猫咪的关联记录，不能单独更换猫咪，请使用关联身份更正';
  const cat=wbActive(store,'cats').find(c=>sameCat(r,{catId:c.id,cat:c.name}));
- if(before&&type==='sterilization'&&before.surgeryDate&&['住院中','已放归'].includes(before.status)&&(!r.surgeryDate||!['住院中','已放归'].includes(r.status))&&cat?.neuterDerivation?.legacy&&!r.neuterCorrection)return '旧档案绝育依据不明确，请确认保留已绝育还是改为待确认';
+ if(before&&type==='sterilization'&&before.surgeryDate&&['住院中','已放归'].includes(before.status)&&(!surgeryFacts(r).length||!['住院中','已放归'].includes(r.status))&&cat?.neuterDerivation?.legacy&&!r.neuterCorrection)return '旧档案绝育依据不明确，请确认保留已绝育还是改为待确认';
  if(before&&['rescue','foster'].includes(type)&&before.status==='已结束'&&['去喵星','死亡'].includes(before.outcome)&&!(r.status==='已结束'&&['去喵星','死亡'].includes(r.outcome))&&cat?.memorialDerivation?.legacy&&!r.memorialCorrection)return '旧档案去喵星依据不明确，请确认保留还是撤销标记';
  if(r.neuterCorrection==='待确认'&&wbActive(store,'sterilization').some(x=>x.id!==r.id&&sameCat(x,r)&&['住院中','已放归'].includes(x.status)&&wbValidDate(x.surgeryDate)))return '还有其他已完成手术记录，请先核对，不能直接改为待确认';
  if(r.memorialCorrection==='撤销标记'&&['rescue','foster'].some(t=>wbActive(store,t).some(x=>(t!==type||x.id!==r.id)&&sameCat(x,r)&&x.status==='已结束'&&['去喵星','死亡'].includes(x.outcome))))return '还有其他去喵星依据，请先核对相关记录';
  const isNewStage=!before||before.deletedAt||identityChanged||before.status!==r.status;
+ if(type==='sterilization'&&r.neuterHistoryReason!==undefined&&(typeof r.neuterHistoryReason!=='string'||r.neuterHistoryReason.length>500))return '历史补录说明最多500字';
+ if(type==='sterilization'&&r.status==='已放归'&&isNewStage&&cat?.neuterStatus==='已绝育'&&(!cat.neuterDerivation||cat.neuterDerivation.previousValue==='已绝育'||cat.neuterDerivation.sourceIds?.some(id=>id!==r.id))&&!r.neuterHistoryReason?.trim())return '已确认绝育的猫咪补录另一段历史时，请填写历史补录说明';
+ if(type==='sterilization'&&r.status==='待绝育'&&isNewStage&&cat?.neuterStatus==='已绝育')return '这只猫已确认绝育，不能重复安排待绝育；请核对原记录，历史补录需说明';
+ if(type==='sterilization'&&r.surgeryDate&&(!before||before.surgeryDate!==r.surgeryDate||before.admissionDate!==r.admissionDate||before.hospitalSinceDate!==r.hospitalSinceDate)&&r.surgeryDate<(r.hospitalSinceDate||r.admissionDate||''))return '手术日期不能早于本段入院日期；历史手术请登记在原医院经历中';
+ if(cat&&catCategory(store,cat)==='去了喵星'&&r.locationAction==='move'&&before&&businessDestination(type,r)!==businessDestination(type,before))return '去了喵星后不能登记新的实际转移，请选择更正历史';
+ if(['rescue','sterilization'].includes(type)&&((type==='rescue'&&r.status==='已结束'&&r.outcome==='放归')||(type==='sterilization'&&r.status==='已放归'))&&(!before||before.status!==r.status||before.outcome!==r.outcome||before.releasePlace!==r.releasePlace)){
+  if(['rescue','sterilization'].some(t=>wbActive(store,t).some(x=>(t!==type||x.id!==r.id)&&sameCat(x,r)&&x.status===(t==='rescue'?'就医中':'住院中'))))return '还有未结束的住院记录，请先核对实际离院，不能直接放归';
+ }
  const medicalState={rescue:'就医中',sterilization:'住院中'};if(medicalState[type]===r.status&&(isNewStage||before?.hospital!==r.hospital)){
   const others=['rescue','sterilization'].flatMap(t=>wbActive(store,t).filter(x=>(t!==type||x.id!==r.id)&&sameCat(x,r)&&x.status===medicalState[t]).map(row=>({type:t,row})));
   if(others.some(x=>x.type===type))return type==='sterilization'?'这只猫已有绝育住院记录，请在原记录中更改医院或处理出院':'这只猫已有进行中的救助就医记录，请更新原记录';
@@ -322,7 +333,7 @@ function noteCatChange(store,before,cat){
 function reconcileLocations(store){for(const cat of wbActive(store,'cats')){initLocation(store,cat);const last=[...cat.locationHistory].reverse().find(e=>e.kind!=='business'||(store[e.sourceType]||[]).some(r=>r.id===e.sourceId&&!r.deletedAt&&sameCat(r,{catId:cat.id,cat:cat.name})));cat.place=last?.place||'';}}
 function reconcileDerived(store,asOf=day()){
  for(const cat of wbActive(store,'cats')){
-  const operations=wbActive(store,'sterilization').filter(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&['住院中','已放归'].includes(r.status)&&wbValidDate(r.surgeryDate)&&r.surgeryDate<=asOf);
+  const operations=wbActive(store,'sterilization').filter(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&['住院中','已放归'].includes(r.status)&&surgeryFacts(r).some(x=>x.surgeryDate<=asOf));
   if(operations.length){cat.neuterDerivation??={previousValue:cat.neuterStatus||'',legacy:cat.neuterStatus==='已绝育'};cat.neuterDerivation.sourceIds=operations.map(r=>r.id);cat.neuterStatus='已绝育';}
   else if(cat.neuterDerivation){if(cat.neuterDerivation.legacy)cat.neuterReviewRequired=true;else cat.neuterStatus=cat.neuterDerivation.previousValue;delete cat.neuterDerivation;}
   const deaths=['rescue','foster'].flatMap(type=>wbActive(store,type).filter(r=>sameCat(r,{catId:cat.id,cat:cat.name})&&r.status==='已结束'&&['去喵星','死亡'].includes(r.outcome)));
@@ -337,5 +348,84 @@ function applyDerivedCorrection(store,type,before,after){const cat=wbActive(stor
 }
 function syncRefundReviews(store){for(const sale of store.sales||[]){const bill=(store.finance||[]).find(b=>b.saleId===sale.id&&!b.deletedAt);if(!bill||!sale.cancelledAt)continue;if(bill.status==='待确认'){bill.status='已取消';continue;}if(bill.status!=='已入账')continue;const key=String(sale.cancelledAt);if(!bill.refundCheckedEvent&&!bill.refundReview&&bill.refundCheckedDate&&bill.refundCheckedDate>=key.slice(0,10))bill.refundCheckedEvent=key;bill.refundReviewEvent=key;bill.refundReview=bill.refundCheckedEvent!==key;}}
 
-return {memorialDateSignature,settledFinance,signedAmount,reviewKey,prepareFinanceChange,financeChangeError,recordChangeError,deletionError,archiveCatError,businessLinks,noteCatChange,memorialDateError,initLocation,pushLocation,businessDestination,reconcileDerived,reconcileLocations,syncRefundReviews,archiveProfileError,catMatchesTab,businessRuleError,applyBusinessLinks,defaultSightingPlace,syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
+
+function hospitalRecordId(parts){let hash=2166136261;for(const c of JSON.stringify(parts))hash=Math.imul(hash^c.charCodeAt(0),16777619);return 'HOSP-'+(hash>>>0).toString(36);}
+function hospitalName(value){return String(value||'').trim();}
+function medicalActive(type,row){return row&&!row.deletedAt&&row.status===(type==='rescue'?'就医中':type==='sterilization'?'住院中':'');}
+function surgeryFacts(row){return [...(row.hospitalHistory||[]),row].filter(x=>wbValidDate(x.surgeryDate)).sort((a,b)=>a.surgeryDate.localeCompare(b.surgeryDate));}
+function prepareHospitalChanges(store,old,changes,asOf=day()){
+ const processed=new Set();
+ for(const change of changes){const type=change.type||change.collection,id=change.id;if(!['rescue','sterilization'].includes(type)||processed.has(type+':'+id))continue;
+  const before=(old[type]||[]).find(r=>r.id===id),after=(store[type]||[]).find(r=>r.id===id);if(!after||after.deletedAt)continue;
+  const from=hospitalName(before?.hospital),to=hospitalName(after.hospital),known=from&&!['待确定','待确认','待补充','未填写'].includes(from);
+  if(!before||!known||!to||from===to){if(!before&&after.hospitalHistory?.length)return '新增记录不能直接填入医院历史，请使用转院登记';if(before&&JSON.stringify(before.hospitalHistory||[])!==JSON.stringify(after.hospitalHistory||[]))return '医院经历不能直接覆盖或删除';continue;}
+  let op=after.hospitalChange;
+  if(!op||op.id===before.hospitalChange?.id){if(!['move','history'].includes(after.locationAction))return '请确认医院名称修改属于实际转院还是原名称填错';op={id:hospitalRecordId([id,from,to,before.hospitalChange?.id,(before.hospitalHistory||[]).length]),kind:after.locationAction==='move'?'transfer':'correction',date:asOf};}
+  if(!/^[A-Za-z0-9][A-Za-z0-9_.:-]{0,119}$/.test(op.id||'')||!['transfer','correction'].includes(op.kind))return '请选择转院或原名称填错';
+  const cat=wbActive(store,'cats').find(c=>sameCat(after,{catId:c.id,cat:c.name}));
+  if(op.kind==='transfer'){
+   if(!medicalActive(type,before)||!medicalActive(type,after))return '仅正在住院的记录可以登记实际转院';
+   if(cat&&catCategory(store,cat)==='去了喵星')return '去了喵星后不能登记实际转院，只能更正历史';
+   const start=before.hospitalSinceDate||before.admissionDate||before.medicalDate||before.date;
+   if(!wbValidDate(op.date)||op.date>asOf||wbValidDate(start)&&op.date<start||wbValidDate(before.surgeryDate)&&op.date<before.surgeryDate)return '转院日期应在本段入院及已完成手术之后，且不能晚于今天';
+  }
+  const targets=[{type,before,after}];
+  if(medicalActive(type,before)&&medicalActive(type,after))for(const other of ['rescue','sterilization'].filter(t=>t!==type))for(const row of wbActive(store,other)){
+   const prior=(old[other]||[]).find(r=>r.id===row.id);if(!medicalActive(other,prior)||!medicalActive(other,row)||!sameCat(row,after)||hospitalName(prior.hospital)!==from)continue;
+   if(hospitalName(row.hospital)!==from&&hospitalName(row.hospital)!==to)return '关联住院记录同时修改了另一家医院，请先核对';
+   targets.push({type:other,before:prior,after:row});
+  }
+  for(const target of targets){const r=target.after,prior=target.before,key=target.type+':'+r.id;processed.add(key);
+   if(op.kind==='transfer'){
+    const start=prior.hospitalSinceDate||prior.admissionDate||prior.medicalDate||prior.date;
+    if(wbValidDate(start)&&op.date<start||wbValidDate(prior.surgeryDate)&&op.date<prior.surgeryDate)return '转院日期不能早于关联记录本段入院或手术日期';
+    const visit={id:hospitalRecordId([op.id,target.type,r.id]),hospital:prior.hospital,startDate:start||'',endDate:op.date,surgeryDate:prior.surgeryDate||'',cost:prior.cost??null,transferId:op.id};
+    const expected=[...(prior.hospitalHistory||[]),visit];
+    if(JSON.stringify(r.hospitalHistory||[])!==JSON.stringify(prior.hospitalHistory||[])&&JSON.stringify(r.hospitalHistory)!==JSON.stringify(expected))return '原医院经历不一致，请刷新后重新转院';
+    r.hospitalHistory=expected;r.hospitalSinceDate=op.date;if(target.type==='sterilization'){r.surgeryDate='';r.cost=null;}r.locationAction='move';
+   }else{
+    if(JSON.stringify(r.hospitalHistory||[])!==JSON.stringify(prior.hospitalHistory||[]))return '更正名称不能改写既有医院经历';r.locationAction='history';
+    if(cat){initLocation(store,cat);const event=[...cat.locationHistory].reverse().find(e=>e.kind==='business'&&e.sourceType===target.type&&e.sourceId===r.id&&e.place===from);if(event)event.place=to;}
+   }
+   r.hospital=to;r.hospitalChange={id:op.id,kind:op.kind,date:op.kind==='transfer'?op.date:'',from,to};
+  }
+ }
+ return '';
+}
+function prepareLinkedDates(store,old,changes){
+ for(const change of changes){const type=change.type||change.collection,r=(store[type]||[]).find(x=>x.id===change.id),prior=(old[type]||[]).find(x=>x.id===change.id);if(!r||r.deletedAt||!prior||r.completedDate===prior.completedDate)continue;
+  if(['rescue','foster'].includes(type)&&r.status==='已结束'&&prior.status==='已结束'&&['放归','已放归'].includes(r.outcome)&&r.outcome===prior.outcome){if(r.releaseDate===prior.releaseDate||!r.releaseDate)r.releaseDate=r.completedDate;if(r.releaseDate!==r.completedDate)return '实际放归日期须与结束日期一致';}
+  if(type==='foster'&&r.status==='已结束'&&prior.status==='已结束'&&r.segments?.length){const last=r.segments.at(-1),oldLast=prior.segments?.at(-1);if(oldLast?.endDate!==prior.completedDate&&last.endDate!==r.completedDate)return '末段寄养结束日已有独立更正，请核对后再修改';if(last.endDate===oldLast?.endDate)last.endDate=r.completedDate;if(last.endDate!==r.completedDate)return '寄养结束日期须与末段结束日期一致';}
+  if(type==='rescue'&&r.status==='已结束'&&r.outcome==='转寄养'&&prior.outcome==='转寄养')for(const f of wbActive(store,'foster').filter(x=>x.sourceRescueId===r.id)){
+   if(f.status==='待安置'&&!f.segments?.length){if(f.date!==prior.completedDate&&f.date!==r.completedDate)return '关联待安置日期已有独立更正，请先核对';f.date=r.completedDate;if(!f.waitingSince||f.waitingSince===prior.completedDate)f.waitingSince=r.completedDate;}
+   else if(f.segments?.length&&r.completedDate>f.segments[0].startDate)return '救助转寄养日期不能晚于实际寄养开始日期';
+  }
+ }
+ return '';
+}
+
+function prepareHospitalDischarge(store,old,changes,asOf=day()){
+ const processed=new Set();
+ for(const change of changes){const type=change.type||change.collection,id=change.id;if(!['rescue','sterilization'].includes(type)||processed.has(type+':'+id))continue;const before=(old[type]||[]).find(x=>x.id===id),r=(store[type]||[]).find(x=>x.id===id);if(!r||!medicalActive(type,before)||r.deletedAt)continue;
+  const releasing=type==='rescue'?r.status==='已结束'&&r.outcome==='放归':r.status==='已放归';if(!releasing)continue;
+  const op=r.hospitalDischarge;if(!op||op.id===before.hospitalDischarge?.id)continue;
+  const date=r.releaseDate||r.completedDate,place=String(r.releasePlace||'').trim(),cat=wbActive(store,'cats').find(c=>sameCat(r,{catId:c.id,cat:c.name}));if(!op.confirmed||!op.id||!wbValidDate(date)||date>asOf||!place)return '请确认实际离院日期和放归地点';if(cat&&catCategory(store,cat)==='去了喵星')return '去了喵星后不能登记新的实际离院';
+  for(const targetType of ['rescue','sterilization'])for(const row of wbActive(store,targetType)){
+   const prior=(old[targetType]||[]).find(x=>x.id===row.id);if(!medicalActive(targetType,prior)||!sameCat(row,r))continue;
+   if(hospitalName(prior.hospital)!==hospitalName(before.hospital))return '关联住院医院不一致，请先核对，不能一并离院';
+   const earliest=prior.hospitalSinceDate||prior.admissionDate||prior.medicalDate||prior.date;if(wbValidDate(earliest)&&date<earliest||wbValidDate(prior.surgeryDate)&&date<prior.surgeryDate)return '实际离院日期不能早于关联入院或手术日期';
+   if(row.id!==r.id||targetType!==type){if(!medicalActive(targetType,row)&&!(row.hospitalDischarge?.id===op.id))return '关联住院正在独立结束，请先核对';row.status=targetType==='rescue'?'已结束':'已放归';if(targetType==='rescue'){row.outcome='放归';row.completedDate=date;}}
+   row.releaseDate=date;row.releasePlace=place;row.hospitalDischarge={id:op.id,confirmed:true,date,place};row.locationAction='move';processed.add(targetType+':'+row.id);
+  }
+ }
+ return '';
+}
+
+function finalBusinessError(store,old,asOf=day()){
+ for(const type of businessTypes)for(const r of wbActive(store,type)){const error=businessRuleError(store,type,r,(old[type]||[]).find(x=>x.id===r.id),asOf);if(error)return error;}
+ for(const cat of wbActive(store,'cats')){const error=memorialDateError(store,cat,asOf),prior=(old.cats||[]).find(c=>c.id===cat.id);if(error&&(!prior||memorialDateSignature(store,cat)!==memorialDateSignature(old,prior)))return error;}
+ return '';
+}
+
+return {prepareHospitalDischarge,prepareHospitalChanges,prepareLinkedDates,finalBusinessError,surgeryFacts,medicalActive,memorialDateSignature,settledFinance,signedAmount,reviewKey,prepareFinanceChange,financeChangeError,recordChangeError,deletionError,archiveCatError,businessLinks,noteCatChange,memorialDateError,initLocation,pushLocation,businessDestination,reconcileDerived,reconcileLocations,syncRefundReviews,archiveProfileError,catMatchesTab,businessRuleError,applyBusinessLinks,defaultSightingPlace,syncBusinessChange,day,catCategory,outreachStates,outreachError,announcementError,announcementKey,statuses:wbStatuses,id:wbId,active:wbActive,validDate:wbValidDate,addDays:wbAddDays,addMonth:wbAddMonth,followup:wbFollowup,migrate:wbMigrate,legacyMigrate:migrateData,reservations:wbReservations,available:wbAvailable,finance:wbFinance,sync:wbSync,normalize(store,asOf=day()){return wbSync(wbMigrate(migrateData(store),asOf),asOf);}};
 });

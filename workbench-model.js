@@ -5,7 +5,7 @@ function wbFollowup(row,asOf=today){return DanmiaoDomain.followup(row,asOf,data)
 function wbMigrate(store){return DanmiaoDomain.migrate(store,today);}
 function wbSync(store,asOf=today){return DanmiaoDomain.sync(store,asOf);}
 function wbError(text){toast(text);return false}
-function wbBusinessSave(type,values,id){
+function wbBusinessSaveImpl(type,values,id){
  const old=find(type,id),v={...values,owner:(values.owner||'').trim()};if(['rescue','foster'].includes(type)&&['死亡','去了喵星','已去喵星'].includes(v.outcome))v.outcome='去喵星';if(id&&(!old||old.deletedAt))return wbError('记录已删除或不可用，请返回列表刷新');
  v.cat=String(v.cat||'').trim();const exact=wbFindCat(v.cat);if(exact){if(v.cat!==exact.name)v.catAlias=v.cat;v.cat=exact.name;}else if(v.cat&&wbHomophoneCats(v.cat).length&&!values.identityDecision)return wbError('发现同音猫名，请先确认是否为同一只猫');
  if(v.cat&&!exact&&data.cats.some(c=>c.deletedAt&&(wbCatNameKey(c.name)===wbCatNameKey(v.cat)||(c.aliases||[]).some(a=>wbCatNameKey(a)===wbCatNameKey(v.cat)))))return wbError('这只猫的档案在回收站，请先恢复原档案');delete v.identityDecision;
@@ -29,7 +29,7 @@ function wbBusinessSave(type,values,id){
 
   if(v.surgeryDate&&(!wbValidDate(v.surgeryDate)||v.surgeryDate>today))return wbError('手术日期应填写实际完成日期，不能晚于今天');
   if(v.status==='已放归'&&(!v.releasePlace?.trim()||!wbValidDate(v.releaseDate)||v.surgeryDate&&v.releaseDate<v.surgeryDate||v.releaseDate>today))return wbError('已放归需填写有效放归日期及位置');
-  if(!Object.hasOwn(values,'cost'))v.cost=old?.cost??null;v.cost=v.cost===null||v.cost===undefined||v.cost===''?null:Number(v.cost);if(v.cost!==null&&(!Number.isFinite(v.cost)||v.cost<0))return wbError('费用应为非负金额');if(v.status==='住院中')v.admissionDate=old?.admissionDate||(old?.status==='住院中'&&wbValidDate(old.date)&&old.date<=today?old.date:today);v.date=v.surgeryDate||v.admissionDate||old?.date||today;
+  if(!Object.hasOwn(values,'cost'))v.cost=old?.cost??null;v.cost=v.cost===null||v.cost===undefined||v.cost===''?null:Number(v.cost);if(v.cost!==null&&(!Number.isFinite(v.cost)||v.cost<0))return wbError('费用应为非负金额');if(v.status==='住院中')v.admissionDate=v.admissionDate||old?.admissionDate||(old?.status==='住院中'&&wbValidDate(old.date)&&old.date<=today?old.date:today);v.date=v.surgeryDate||v.admissionDate||old?.date||today;
  }
  if(type==='foster'){
   if(v.situation!==undefined&&(typeof v.situation!=='string'||v.situation.length>1000))return wbError('寄养情况最多1000字');
@@ -63,10 +63,10 @@ function wbBusinessSave(type,values,id){
   const releasing=!old||old.status!=='已结束'||old.outcome!==v.outcome;
   if((releasing||Object.hasOwn(values,'releasePlace'))&&!v.releasePlace)return wbError('请填写实际放归地点');
  }
- const ruleError=DanmiaoDomain.businessRuleError(data,type,{...old,...v},old,today);if(ruleError)return wbError(ruleError);
+ if(!v.hospitalChange&&!v.hospitalDischarge){const ruleError=DanmiaoDomain.businessRuleError(data,type,{...old,...v},old,today);if(ruleError)return wbError(ruleError);}
  const linkedCat=v.cat?wbEnsureBusinessCat(v):null;if(linkedCat)v.catId=linkedCat.id;
  if(type==='adoption'){const cat=active('cats').find(c=>c.name===v.cat);if(cat)for(const k of ['sex','age','coatType','neuterStatus','medicalHistory'])if(Object.hasOwn(values,k))cat[k]=v[k];}
- v.photos=old?.photos||[];return !!writeRecord(type,v,id);
+ v.photos=values.photos??old?.photos??[];return !!writeRecord(type,v,id);
 }
 function wbSaleSave(values,id){
  const old=find('sales',id);if(id&&(!old||old.deletedAt))return wbError('订单已删除或不可用');if(old&&(old.deliveredDate||old.cancelledAt))return wbError('已交付或已取消记录保留历史；数量差异请人工盘点');
@@ -147,17 +147,17 @@ function wbSaveStory(v,id){const old=find('stories',id),text=String(v.text||'').
 function wbSaveStoryComment(id,v){const row=find('stories',id),text=String(v.text||'').trim(),photos=v.photos||[],author=String(v.author||'匿名同学').trim();if(!row||row.deletedAt)return wbError('这条轶事不可用');if(!text&&!photos.length)return wbError('填写留言或选择图片');if(text.length>300||author.length>30||photos.length>3)return wbError('留言最多300字，每次最多3张图片');const before=clone(row);row.comments??=[];row.comments.push({id:wbId('COMMENT'),text,photos,author:author||'匿名同学',createdAt:new Date().toISOString()});persist('已添加留言',{type:'stories',recordId:id,action:'留言',before,after:clone(row)});return true;}
 function wbSetStoryDeleted(id,deleted){const row=find('stories',id);if(!row)return wbError('轶事记录不存在');const before=clone(row);row.deletedAt=deleted?new Date().toISOString():null;persist(deleted?'轶事已移入最近删除':'已恢复轶事',{type:'stories',recordId:id,action:deleted?'删除轶事':'恢复轶事',before,after:clone(row)});return true;}
 
-function wbSaveCatProfileCore(values,id){const old=find('cats',id);if(id&&(!old||old.deletedAt))return wbError('猫咪档案已删除或不可用');const name=String(values.name||'').trim(),key=wbCatNameKey(name);if(!name)return wbError('请填写猫咪名字');if(data.cats.some(c=>c.id!==id&&(wbCatNameKey(c.name)===key||(c.aliases||[]).some(a=>wbCatNameKey(a)===key))))return wbError('该名字或曾用名已有档案，请使用原档案或先从回收站恢复');if(old?.discoveryPlace&&Object.hasOwn(values,'discoveryPlace')&&values.discoveryPlace!==old.discoveryPlace)return wbError('发现地点首次登记后固定，不能修改');const discoveryPlace=String(old?.discoveryPlace||values.discoveryPlace||(!old?values.place:'')||'').trim();if(discoveryPlace.length>150)return wbError('发现地点最多150字');const next={...values,discoveryPlace,place:old?(values.place??old.place??discoveryPlace):(values.place||discoveryPlace),name,color:old?.color||'#c9ac82',aliases:[...(old?.aliases||[])],photos:old?.photos||[]};if(old&&name!==old.name){if(!next.aliases.includes(old.name))next.aliases.push(old.name);for(const type of [...businessTypes,'stories','monthly','movements','loans'])for(const row of data[type]||[])if(row.catId===id||!row.catId&&row.cat===old.name){row.cat=name;if([...businessTypes,'stories'].includes(type))row.catId=id;}}return !!writeRecord('cats',next,id);}
+function wbSaveCatProfileCoreImpl(values,id){const old=find('cats',id);if(id&&(!old||old.deletedAt))return wbError('猫咪档案已删除或不可用');const name=String(values.name||'').trim(),key=wbCatNameKey(name);if(!name)return wbError('请填写猫咪名字');if(data.cats.some(c=>c.id!==id&&(wbCatNameKey(c.name)===key||(c.aliases||[]).some(a=>wbCatNameKey(a)===key))))return wbError('该名字或曾用名已有档案，请使用原档案或先从回收站恢复');if(old?.discoveryPlace&&Object.hasOwn(values,'discoveryPlace')&&values.discoveryPlace!==old.discoveryPlace)return wbError('发现地点首次登记后固定，不能修改');const discoveryPlace=String(old?.discoveryPlace||values.discoveryPlace||(!old?values.place:'')||'').trim();if(discoveryPlace.length>150)return wbError('发现地点最多150字');const next={...values,discoveryPlace,place:old?(values.place??old.place??discoveryPlace):(values.place||discoveryPlace),name,color:old?.color||'#c9ac82',aliases:[...(old?.aliases||[])],photos:old?.photos||[]};if(old&&name!==old.name){if(!next.aliases.includes(old.name))next.aliases.push(old.name);for(const type of [...businessTypes,'stories','monthly','movements','loans'])for(const row of data[type]||[])if(row.catId===id||!row.catId&&row.cat===old.name){row.cat=name;if([...businessTypes,'stories'].includes(type))row.catId=id;}}return !!writeRecord('cats',next,id);}
 
-function wbSaveBusinessFacts(type,id,mode,values){
+function wbSaveBusinessFactsImpl(type,id,mode,values){
  const r=find(type,id);if(!r||r.deletedAt)return wbError('记录已删除或不可用，请刷新列表');
  if(window.DanmiaoBackend?.user?.role==='viewer')return wbError('只读账号不能修改数据');
  if(type==='sterilization'&&mode==='cost')return wbBusinessSave(type,{...r,cost:values.cost},id);
  if(['rescue','sterilization'].includes(type)&&mode==='area'){if(!['待救助','待绝育'].includes(r.status))return wbError('仅待救助、待绝育记录可修改最近目击地点');return wbBusinessSave(type,{...r,place:String(values.place||'').trim(),locationAction:'move'},id);}
  if(type==='sterilization'&&mode==='capturer')return wbBusinessSave(type,{...r,capturer:String(values.capturer||'').trim()},id);
- if(type==='sterilization'&&mode==='medical'){
+ if(['rescue','sterilization'].includes(type)&&mode==='medical'){
   if(r.status==='待绝育')return wbError('请通过更新状态登记医院与手术日期');
-  return wbSubmitBusiness(type,{...r,hospital:String(values.hospital||'').trim(),surgeryDate:String(values.surgeryDate||'').trim(),locationAction:values.locationAction||'move'},id);
+  return wbSubmitBusiness(type,{...r,hospital:String(values.hospital||'').trim(),...(type==='sterilization'?{surgeryDate:String(values.surgeryDate||'').trim()}:{}),locationAction:values.locationAction||'move',hospitalChange:values.hospitalChange},id);
  }
  if(type==='foster'&&mode==='situation'){const situation=String(values.situation||'').trim();if(situation.length>1000)return wbError('寄养情况最多1000字');return !!writeRecord(type,{situation},id);}
  if(type!=='foster'||mode!=='placement')return wbError('未知编辑字段');
@@ -173,13 +173,13 @@ function wbSaveBusinessFacts(type,id,mode,values){
  return wbBusinessSave(type,{...r,place,caregiver,status:'寄养中',date,transitionDate:date,locationAction:'move'},id);
 }
 
-function wbSaveCatProfile(values,id){
+function wbSaveCatProfileImpl(values,id){
  const old=find('cats',id),next={...old,...values};const error=DanmiaoDomain.archiveProfileError(next,old,today);if(error)return wbError(error);
  const status=values.archiveStatus??old?.archiveStatus??'',create=values.profileRecordChoice==='create',type=status==='已领养'?'adoption':'foster',date=values.archiveStatusDate||today;
  if(create&&(!wbValidDate(date)||date>today||status==='已领养'&&!values.profileApplicant?.trim()||status==='寄养中'&&(!values.place?.trim()||!values.profileCaregiver?.trim())))return wbError('建立业务记录需填写实际日期、领养人或寄养地点与照护人');
  if(create||values.profileRecordChoice==='profile'&&status==='已领养'){const candidate={cat:values.name,catId:id||'',status:status==='已领养'?'已领养':'寄养中',adoptDate:date,date,place:values.place,caregiver:values.profileCaregiver};if(type==='foster')candidate.segments=[{place:candidate.place,caregiver:candidate.caregiver,startDate:date,endDate:''}];const reason=DanmiaoDomain.businessRuleError(data,type,candidate,null,today);if(reason)return wbError(reason);}
  if(values.profileRecordChoice==='profile'&&status==='已领养'&&old&&active('adoption').some(a=>a.catId===id&&a.status==='已领养'))return wbError('已有协会领养归档资料，请在原领养记录中处理，不能改为不显示');
- const clean={...values};if(create)clean.archiveStatus='';if(values.profileRecordChoice==='profile'&&status==='已领养'&&(!old||old.archiveStatus!==status))clean.place=values.place&&values.place!==old?.place?values.place:'领养家庭';for(const key of ['profileRecordChoice','profileApplicant','profileCaregiver'])delete clean[key];if(status==='去了喵星')clean.memorialRegisteredAt=old?.memorialRegisteredAt||new Date().toISOString();
+ const clean={...values};if(create)clean.archiveStatus='';if(values.profileRecordChoice==='profile'&&status==='已领养'&&(!old||old.archiveStatus!==status))clean.place=values.place&&values.place!==old?.place?values.place:old&&['rescue','sterilization'].some(t=>active(t).some(r=>(r.catId?r.catId===old.id:r.cat===old.name)&&DanmiaoDomain.medicalActive(t,r)))?old.place:'领养家庭';for(const key of ['profileRecordChoice','profileApplicant','profileCaregiver'])delete clean[key];if(status==='去了喵星')clean.memorialRegisteredAt=old?.memorialRegisteredAt||new Date().toISOString();
  clean.profileOnly=['已领养','寄养中'].includes(status)&&!create;
  if(!wbSaveCatProfileCore(clean,id))return false;
  const cat=wbFindCat(values.name);
@@ -196,7 +196,17 @@ function wbSaveCatProfile(values,id){
 function wbSaveCatPhotoInfo(id,asset,title,note){const cat=find('cats',id),photo=cat?.photos?.find(p=>p.id===asset);title=String(title||'').trim();note=String(note||'').trim();if(!cat||cat.deletedAt||!photo)return wbError('照片已不可用');if(!title||title.length>80||note.length>500)return wbError('照片名称需为1到80字，备注最多500字');const before=clone(cat);Object.assign(photo,{title,note});if(cat.avatar?.id===asset)Object.assign(cat.avatar,{title,note});persist('照片信息已保存',{type:'cats',recordId:id,action:'修改照片信息',before,after:clone(cat)});return true;}
 function wbArchiveCat(id,archive,reason=''){const cat=find('cats',id);if(!cat||cat.deletedAt)return wbError('档案不可用');if(archive){const error=DanmiaoDomain.archiveCatError(data,cat);if(error)return wbError(error);}return !!writeRecord('cats',{archivedAt:archive?new Date().toISOString():'',archiveReason:reason},id);}
 function wbCreateFinanceAdjustment(id,v){const original=find('finance',id);if(!DanmiaoDomain.settledFinance(original)||original.adjustmentOf)return wbError('请选择已入账的原始账目');const amountCents=readMoney(v.amount);if(amountCents===null||!['冲销','补记'].includes(v.kind)||!v.note?.trim())return wbError('请填写调整方式、有效金额和原因');const row={title:v.kind+'：'+original.title,flow:original.flow==='收入'?'收入':'协会支出',status:'已入账',date:v.date,paidDate:v.date,amountCents,adjustmentOf:id,adjustmentSign:v.kind==='冲销'?-1:1,owner:window.DanmiaoBackend?.user?.name||'共用测试账号',note:v.note,linkType:'finance',linkId:id};return !!writeRecord('finance',row);}
-function wbCorrectBusinessIdentity(type,id,targetId,reason){if(window.DanmiaoBackend&&window.DanmiaoBackend.user.role!=='admin')return wbError('关联身份更正仅限管理员');const target=find('cats',targetId),original=find(type,id);if(!target||target.deletedAt||!original||!reason?.trim())return wbError('请选择有效档案并填写更正原因');const nodes=DanmiaoDomain.businessLinks(data,type,id);if(nodes.some(n=>n.row.deletedAt))return wbError('包含回收站中的关联记录，请先核对并恢复后再整体更正');const proposal=clone(data),operation=uid('IDENTITY');for(const node of nodes){const row=proposal[node.type].find(r=>r.id===node.row.id);Object.assign(row,{cat:target.name,catId:target.id,identityCorrectionId:operation,identityCorrectionReason:reason,locationAction:'history'});}
+function wbCorrectBusinessIdentityImpl(type,id,targetId,reason){if(window.DanmiaoBackend&&window.DanmiaoBackend.user.role!=='admin')return wbError('关联身份更正仅限管理员');const target=find('cats',targetId),original=find(type,id);if(!target||target.deletedAt||!original||!reason?.trim())return wbError('请选择有效档案并填写更正原因');const nodes=DanmiaoDomain.businessLinks(data,type,id);if(nodes.some(n=>n.row.deletedAt))return wbError('包含回收站中的关联记录，请先核对并恢复后再整体更正');const proposal=clone(data),operation=uid('IDENTITY');for(const node of nodes){const row=proposal[node.type].find(r=>r.id===node.row.id);Object.assign(row,{cat:target.name,catId:target.id,identityCorrectionId:operation,identityCorrectionReason:reason,locationAction:'history'});}
  for(const node of nodes){const row=proposal[node.type].find(r=>r.id===node.row.id),error=DanmiaoDomain.businessRuleError(proposal,node.type,row,node.row,today);if(error)return wbError(error);}
  for(const node of nodes){const row=proposal[node.type].find(r=>r.id===node.row.id);DanmiaoDomain.syncBusinessChange(proposal,node.type,node.row,row);}DanmiaoDomain.sync(proposal,today);for(const cat of proposal.cats.filter(c=>!c.deletedAt)){const error=DanmiaoDomain.memorialDateError(proposal,cat,today);if(error)return wbError(error);}
  const before=nodes.map(n=>({type:n.type,row:clone(n.row)}));for(const node of nodes)Object.assign(node.row,proposal[node.type].find(r=>r.id===node.row.id));persist('已整体更正 '+nodes.length+' 条关联记录，请核对两份档案地点',{action:'关联身份更正',type,recordId:id,before,after:{targetCatId:target.id,reason,operation}});return true;}
+
+function wbBusinessSave(...args){return wbAtomicSave(()=>wbBusinessSaveImpl(...args));}
+
+function wbSaveCatProfileCore(...args){return wbAtomicSave(()=>wbSaveCatProfileCoreImpl(...args));}
+
+function wbSaveCatProfile(...args){return wbAtomicSave(()=>wbSaveCatProfileImpl(...args));}
+
+function wbSaveBusinessFacts(...args){return wbAtomicSave(()=>wbSaveBusinessFactsImpl(...args));}
+
+function wbCorrectBusinessIdentity(...args){return wbAtomicSave(()=>wbCorrectBusinessIdentityImpl(...args));}

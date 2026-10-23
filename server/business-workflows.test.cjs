@@ -41,7 +41,7 @@ test('profile-only adoption/fostering is classified without inventing associatio
 });
 test('historical location corrections do not replay old moves',()=>{
  let s=commit(fresh(),'rescue',{...cat,id:'R-LOCATION-HISTORY',place:'发现点',issue:'观察',status:'就医中',hospital:'旧医院',medicalDate:date});
- s=commit(s,'foster',foster());assert.equal(s.cats[0].place,'寄养点');
+ s=commit(s,'foster',foster());assert.equal(s.cats[0].place,'旧医院');s=commit(s,'cats',{id:'C-RULE',place:'寄养点'});
  s=commit(s,'rescue',{id:'R-LOCATION-HISTORY',hospital:'更正后的旧医院',locationAction:'history'});assert.equal(s.cats[0].place,'寄养点');
  s=commit(s,'rescue',{id:'R-LOCATION-HISTORY',hospital:'实际新医院',locationAction:'move'});assert.equal(s.cats[0].place,'实际新医院');
 });
