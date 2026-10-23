@@ -352,7 +352,7 @@ function wbEnhanceSelects(){for(const select of document.querySelectorAll('selec
 document.addEventListener('click',e=>{if(wbOpenDropdown&&!wbOpenDropdown.wrap.contains(e.target))wbCloseDropdown()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&wbOpenDropdown){e.preventDefault();wbCloseDropdown()}});
 window.addEventListener('resize',wbCloseDropdown);
-if(typeof MutationObserver!=='undefined')new MutationObserver(()=>{if(wbOpenDropdown&&!wbOpenDropdown.trigger.isConnected)wbCloseDropdown();wbEnhanceSelects();}).observe(document.body,{childList:true,subtree:true});
+if(typeof MutationObserver!=='undefined')new MutationObserver(()=>{if(wbOpenDropdown&&!wbOpenDropdown.trigger.isConnected)wbCloseDropdown();wbEnhanceSelects();wbSyncDateInputs();}).observe(document.body,{childList:true,subtree:true});
 
 const wbDefaultCats=[['black','黑猫'],['white','白猫'],['tabby','狸花猫'],['calico','三花猫'],['cow','奶牛猫'],['torbie','彩狸'],['orange','橘猫'],['orange_white','橘白']];
 function wbCatPreset(c){if(wbDefaultCats.some(([k])=>k===c?.avatarPreset))return c.avatarPreset;return ({'#d8a36a':'orange','#686e67':'black','#ddd5c3':'white','#bf987c':'calico','#474e49':'black','#c3ac80':'tabby'})[c?.color]||'tabby';}

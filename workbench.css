@@ -110,3 +110,5 @@ summary.experience-card-head{cursor:pointer;list-style:none}summary.experience-c
 
 /* Toasts share the browser top layer with dialogs and custom selects. */
 #toast{inset:auto auto 24px 50%;margin:0;border:0;width:max-content;max-width:calc(100vw - 32px);white-space:normal;overflow-wrap:anywhere;line-height:1.7;text-align:center;pointer-events:none}
+
+input.date-empty:not(:focus)::-webkit-datetime-edit{color:transparent}
